@@ -1,13 +1,21 @@
 package view;
 
+import dao.DashboardDAO;
 import util.SessionManager;
 import javax.swing.*;
 import java.awt.*;
 
 public class AdminDashboardView extends JFrame {
+    private final DashboardDAO dashboardDAO;
+    private JLabel totalEventsValueLabel;
+    private JLabel totalUsersValueLabel;
+    private JLabel totalRevenueValueLabel;
+    private JLabel upcomingEventsValueLabel;
     
     public AdminDashboardView() {
+        dashboardDAO = new DashboardDAO();
         initializeUI();
+        loadStatistics();
     }
     
     private void initializeUI() {
@@ -54,10 +62,15 @@ public class AdminDashboardView extends JFrame {
         statsPanel.setBorder(BorderFactory.createTitledBorder("System Statistics"));
         
         // Create stat cards
-        statsPanel.add(createStatCard("Total Events", "15", new Color(70, 130, 180)));
-        statsPanel.add(createStatCard("Total Users", "42", new Color(60, 179, 113)));
-        statsPanel.add(createStatCard("Total Revenue", "RWF 250,000", new Color(255, 165, 0)));
-        statsPanel.add(createStatCard("Upcoming Events", "8", new Color(220, 20, 60)));
+        totalEventsValueLabel = new JLabel();
+        totalUsersValueLabel = new JLabel();
+        totalRevenueValueLabel = new JLabel();
+        upcomingEventsValueLabel = new JLabel();
+        
+        statsPanel.add(createStatCard("Total Events", totalEventsValueLabel, new Color(70, 130, 180)));
+        statsPanel.add(createStatCard("Total Users", totalUsersValueLabel, new Color(60, 179, 113)));
+        statsPanel.add(createStatCard("Total Revenue", totalRevenueValueLabel, new Color(255, 165, 0)));
+        statsPanel.add(createStatCard("Upcoming Events", upcomingEventsValueLabel, new Color(220, 20, 60)));
         
         mainPanel.add(welcomePanel, BorderLayout.NORTH);
         mainPanel.add(statsPanel, BorderLayout.CENTER);
@@ -66,7 +79,7 @@ public class AdminDashboardView extends JFrame {
         setVisible(true);
     }
     
-    private JPanel createStatCard(String title, String value, Color color) {
+    private JPanel createStatCard(String title, JLabel valueLabel, Color color) {
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(color);
         card.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -75,14 +88,24 @@ public class AdminDashboardView extends JFrame {
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Arial", Font.PLAIN, 14));
         
-        JLabel valueLabel = new JLabel(value, JLabel.CENTER);
         valueLabel.setForeground(Color.WHITE);
         valueLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        valueLabel.setHorizontalAlignment(JLabel.CENTER);
         
         card.add(titleLabel, BorderLayout.NORTH);
         card.add(valueLabel, BorderLayout.CENTER);
         
         return card;
+    }
+    
+    private void loadStatistics() {
+        totalEventsValueLabel.setText(String.valueOf(dashboardDAO.getTotalEvents()));
+        totalUsersValueLabel.setText(String.valueOf(dashboardDAO.getTotalUsers()));
+        
+        double revenue = dashboardDAO.getTotalRevenue();
+        totalRevenueValueLabel.setText(String.format("RWF %,.0f", revenue));
+        
+        upcomingEventsValueLabel.setText(String.valueOf(dashboardDAO.getUpcomingEventsCount()));
     }
     
     private void openEventManagement() {

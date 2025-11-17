@@ -12,7 +12,6 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.Date;
 import java.sql.Time;
-import java.text.SimpleDateFormat;
 import java.util.List;
 
 public class EventManagementView extends JFrame {
@@ -105,7 +104,12 @@ public class EventManagementView extends JFrame {
         gbc.gridx = 1;
         venueCombo = new JComboBox<>();
         loadVenues();
-        panel.add(venueCombo, gbc);
+        JPanel venuePanel = new JPanel(new BorderLayout(5, 0));
+        venuePanel.add(venueCombo, BorderLayout.CENTER);
+        JButton addVenueButton = new JButton("Add Venue");
+        addVenueButton.addActionListener(e -> openAddVenueDialog());
+        venuePanel.add(addVenueButton, BorderLayout.EAST);
+        panel.add(venuePanel, gbc);
         
         gbc.gridx = 2;
         panel.add(new JLabel("Capacity:"), gbc);
@@ -179,10 +183,14 @@ public class EventManagementView extends JFrame {
     }
     
     private void loadVenues() {
+        Venue previouslySelected = (Venue) (venueCombo != null ? venueCombo.getSelectedItem() : null);
         venueCombo.removeAllItems();
         List<Venue> venues = venueDAO.getAvailableVenues();
         for (Venue venue : venues) {
             venueCombo.addItem(venue);
+            if (previouslySelected != null && venue.getVenueId() == previouslySelected.getVenueId()) {
+                venueCombo.setSelectedItem(venue);
+            }
         }
     }
     
@@ -392,5 +400,104 @@ public class EventManagementView extends JFrame {
         capacityField.setText("");
         priceField.setText("");
         statusCombo.setSelectedIndex(0);
+    }
+
+    private void openAddVenueDialog() {
+        JTextField venueNameField = new JTextField(20);
+        JTextField locationField = new JTextField(20);
+        JTextField venueCapacityField = new JTextField(10);
+        JTextField contactPhoneField = new JTextField(15);
+        JTextField rentalCostField = new JTextField(10);
+        JTextArea facilitiesArea = new JTextArea(3, 20);
+        JComboBox<String> availabilityCombo = new JComboBox<>(new String[]{"available", "booked", "maintenance"});
+
+        JPanel form = new JPanel(new GridLayout(0, 2, 5, 5));
+        form.add(new JLabel("Venue Name:"));
+        form.add(venueNameField);
+        form.add(new JLabel("Location:"));
+        form.add(locationField);
+        form.add(new JLabel("Capacity:"));
+        form.add(venueCapacityField);
+        form.add(new JLabel("Contact Phone:"));
+        form.add(contactPhoneField);
+        form.add(new JLabel("Rental Cost:"));
+        form.add(rentalCostField);
+        form.add(new JLabel("Facilities:"));
+        form.add(new JScrollPane(facilitiesArea));
+        form.add(new JLabel("Availability:"));
+        form.add(availabilityCombo);
+
+        int result = JOptionPane.showConfirmDialog(this, form, "Add Venue",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+        if (result == JOptionPane.OK_OPTION) {
+            String venueName = venueNameField.getText().trim();
+            String location = locationField.getText().trim();
+            String capacityText = venueCapacityField.getText().trim();
+            String rentalText = rentalCostField.getText().trim();
+
+            if (venueName.isEmpty() || location.isEmpty() || capacityText.isEmpty() || rentalText.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Please fill in all required fields.",
+                        "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            int venueCapacity;
+            try {
+                venueCapacity = Integer.parseInt(capacityText);
+                if (!ValidationUtil.isValidCapacity(venueCapacity)) {
+                    JOptionPane.showMessageDialog(this, "Capacity must be between 10 and 10,000.",
+                            "Validation Error", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Capacity must be a number.",
+                        "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            double rentalCost;
+            try {
+                rentalCost = Double.parseDouble(rentalText);
+                if (rentalCost <= 0) {
+                    JOptionPane.showMessageDialog(this, "Rental cost must be greater than zero.",
+                            "Validation Error", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Rental cost must be a valid number.",
+                        "Validation Error", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Venue venue = new Venue();
+            venue.setVenueName(venueName);
+            venue.setLocation(location);
+            venue.setCapacity(venueCapacity);
+            venue.setContactPhone(contactPhoneField.getText().trim());
+            venue.setRentalCost(rentalCost);
+            venue.setFacilities(facilitiesArea.getText().trim());
+            venue.setAvailabilityStatus((String) availabilityCombo.getSelectedItem());
+
+            if (venueDAO.createVenue(venue)) {
+                JOptionPane.showMessageDialog(this, "Venue added successfully!",
+                        "Success", JOptionPane.INFORMATION_MESSAGE);
+                loadVenues();
+                selectVenueByName(venueName);
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to add venue.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void selectVenueByName(String venueName) {
+        for (int i = 0; i < venueCombo.getItemCount(); i++) {
+            Venue venue = venueCombo.getItemAt(i);
+            if (venue.getVenueName().equalsIgnoreCase(venueName)) {
+                venueCombo.setSelectedIndex(i);
+                break;
+            }
+        }
     }
 }

@@ -4,8 +4,7 @@ import dao.UserDAO;
 import model.User;
 import util.PasswordUtil;
 import util.SessionManager;
-import view.AdminDashboardView;
-import view.CustomerDashboardView;
+import view.MainApplicationFrame;
 
 public class AuthController {
     private UserDAO userDAO;
@@ -50,10 +49,10 @@ public class AuthController {
             switch (currentUser.getUserRole()) {
                 case "admin":
                 case "organizer":
-                    new AdminDashboardView();
+                    MainApplicationFrame.getInstance().showCard(MainApplicationFrame.ADMIN_DASHBOARD_CARD);
                     break;
                 case "customer":
-                    new CustomerDashboardView();
+                    MainApplicationFrame.getInstance().showCard(MainApplicationFrame.CUSTOMER_DASHBOARD_CARD);
                     break;
             }
         }

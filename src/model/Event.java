@@ -13,7 +13,11 @@ public class Event {
     private int venueId;
     private int organizerId;
     private int capacity;
-    private double ticketPrice;
+    private double ticketPrice; // Default/standard price
+    private double vvipPrice;
+    private double vipPrice;
+    private double casualPrice;
+    private String pricingType; // "single" or "category"
     private String status;
     private Timestamp createdAt;
     
@@ -77,4 +81,28 @@ public class Event {
     
     public String getOrganizerName() { return organizerName; }
     public void setOrganizerName(String organizerName) { this.organizerName = organizerName; }
+    
+    public double getVvipPrice() { return vvipPrice; }
+    public void setVvipPrice(double vvipPrice) { this.vvipPrice = vvipPrice; }
+    
+    public double getVipPrice() { return vipPrice; }
+    public void setVipPrice(double vipPrice) { this.vipPrice = vipPrice; }
+    
+    public double getCasualPrice() { return casualPrice; }
+    public void setCasualPrice(double casualPrice) { this.casualPrice = casualPrice; }
+    
+    public String getPricingType() { return pricingType; }
+    public void setPricingType(String pricingType) { this.pricingType = pricingType; }
+    
+    public double getPriceForCategory(String category) {
+        if ("category".equals(pricingType)) {
+            switch (category.toLowerCase()) {
+                case "vvip": return vvipPrice;
+                case "vip": return vipPrice;
+                case "casual": return casualPrice;
+                default: return ticketPrice;
+            }
+        }
+        return ticketPrice;
+    }
 }

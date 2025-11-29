@@ -14,7 +14,7 @@ public class BookingController {
         eventDAO = new EventDAO();
     }
     
-    public boolean createBooking(int eventId, int userId, int numberOfTickets) {
+    public boolean createBooking(int eventId, int userId, int numberOfTickets, String ticketCategory) {
         // Check available capacity
         int available = eventDAO.getAvailableCapacity(eventId);
         if (available < numberOfTickets) {
@@ -22,18 +22,19 @@ public class BookingController {
         }
         
         // Get event details for pricing
-        Event event = null;
-        for (Event e : eventDAO.getAllEvents()) {
-            if (e.getEventId() == eventId) {
-                event = e;
-                break;
-            }
-        }
-        
+        Event event = eventDAO.getEventById(eventId);
         if (event == null) return false;
         
-        // Calculate total amount
-        double totalAmount = event.getTicketPrice() * numberOfTickets;
+        // Calculate total amount based on category
+        double pricePerTicket;
+        if ("category".equals(event.getPricingType()) && ticketCategory != null) {
+            pricePerTicket = event.getPriceForCategory(ticketCategory);
+        } else {
+            pricePerTicket = event.getTicketPrice();
+            ticketCategory = null; // No category for single pricing
+        }
+        
+        double totalAmount = pricePerTicket * numberOfTickets;
         
         // Create booking
         Booking booking = new Booking();
@@ -43,6 +44,7 @@ public class BookingController {
         booking.setTicketNumber(bookingDAO.generateTicketNumber());
         booking.setNumberOfTickets(numberOfTickets);
         booking.setTotalAmount(totalAmount);
+        booking.setTicketCategory(ticketCategory);
         
         return bookingDAO.createBooking(booking);
     }

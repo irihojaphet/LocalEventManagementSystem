@@ -12,11 +12,18 @@ public class Booking {
     private int numberOfTickets;
     private double totalAmount;
     private boolean checkInStatus;
+    private String ticketCategory; // VVIP, VIP, Casual, or null for single price
     
     // Additional fields for joins
     private String eventName;
     private String userName;
     private String eventDate;
+    private String eventTime;
+    private String eventDescription;
+    private String venueName;
+    private String venueLocation;
+    private String userEmail;
+    private String userPhone;
 
     // Constructors
     public Booking() {}
@@ -68,4 +75,25 @@ public class Booking {
     
     public String getEventDate() { return eventDate; }
     public void setEventDate(String eventDate) { this.eventDate = eventDate; }
+    
+    public String getEventTime() { return eventTime; }
+    public void setEventTime(String eventTime) { this.eventTime = eventTime; }
+    
+    public String getEventDescription() { return eventDescription; }
+    public void setEventDescription(String eventDescription) { this.eventDescription = eventDescription; }
+    
+    public String getVenueName() { return venueName; }
+    public void setVenueName(String venueName) { this.venueName = venueName; }
+    
+    public String getVenueLocation() { return venueLocation; }
+    public void setVenueLocation(String venueLocation) { this.venueLocation = venueLocation; }
+    
+    public String getUserEmail() { return userEmail; }
+    public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
+    
+    public String getUserPhone() { return userPhone; }
+    public void setUserPhone(String userPhone) { this.userPhone = userPhone; }
+    
+    public String getTicketCategory() { return ticketCategory; }
+    public void setTicketCategory(String ticketCategory) { this.ticketCategory = ticketCategory; }
 }

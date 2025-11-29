@@ -1,4 +1,4 @@
-import view.LoginView;
+import view.MainApplicationFrame;
 import javax.swing.*;
 
 public class Main {
@@ -10,7 +10,7 @@ public class Main {
             e.printStackTrace();
         }
         
-        // Start application
-        SwingUtilities.invokeLater(() -> new LoginView());
+        // Start application with main frame
+        SwingUtilities.invokeLater(() -> MainApplicationFrame.getInstance());
     }
 }

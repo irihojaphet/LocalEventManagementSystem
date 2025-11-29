@@ -3,10 +3,12 @@ package view;
 import controller.AuthController;
 import util.PasswordUtil;
 import util.ValidationUtil;
+import util.Theme;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
-public class RegistrationView extends JFrame {
+public class RegistrationPanel extends JPanel {
     private JTextField fullNameField;
     private JTextField usernameField;
     private JTextField emailField;
@@ -17,116 +19,129 @@ public class RegistrationView extends JFrame {
     private JButton backButton;
     private AuthController authController;
     
-    public RegistrationView() {
+    public RegistrationPanel() {
         authController = new AuthController();
         initializeUI();
     }
     
     private void initializeUI() {
-        setTitle("Event Management System - Registration");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(500, 450);
-        setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+        setBackground(Theme.BACKGROUND_LIGHT);
         
-        JPanel mainPanel = new JPanel(new GridBagLayout());
-        mainPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        mainPanel.setBackground(new Color(240, 240, 240));
+        // Main container with gradient
+        JPanel mainContainer = Theme.createGradientPanel();
+        mainContainer.setLayout(new GridBagLayout());
+        mainContainer.setOpaque(false);
+        
+        // Registration card with scroll
+        JPanel regCard = Theme.createCardPanel();
+        regCard.setLayout(new GridBagLayout());
+        regCard.setPreferredSize(new Dimension(550, 650));
         
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(12, 25, 12, 25);
+        gbc.weightx = 1.0;
         
         // Title
-        JLabel titleLabel = new JLabel("Create New Account", JLabel.CENTER);
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
+        JLabel titleLabel = Theme.createStyledLabel("Create New Account", Theme.getTitleFont(), Theme.TEXT_PRIMARY);
+        titleLabel.setHorizontalAlignment(JLabel.CENTER);
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.gridwidth = 2;
-        mainPanel.add(titleLabel, gbc);
+        gbc.insets = new Insets(30, 25, 20, 25);
+        regCard.add(titleLabel, gbc);
         
-        // Form fields
+        // Form fields in two columns
         gbc.gridwidth = 1;
+        gbc.insets = new Insets(12, 25, 12, 25);
         
         // Full Name
         gbc.gridy = 1;
-        mainPanel.add(new JLabel("Full Name:"), gbc);
+        gbc.gridx = 0;
+        regCard.add(Theme.createStyledLabel("Full Name", Theme.getSubheadingFont(), Theme.TEXT_PRIMARY), gbc);
         gbc.gridx = 1;
-        fullNameField = new JTextField(20);
-        mainPanel.add(fullNameField, gbc);
+        fullNameField = Theme.createStyledTextField(20);
+        regCard.add(fullNameField, gbc);
         
         // Username
         gbc.gridx = 0;
         gbc.gridy = 2;
-        mainPanel.add(new JLabel("Username:"), gbc);
+        regCard.add(Theme.createStyledLabel("Username", Theme.getSubheadingFont(), Theme.TEXT_PRIMARY), gbc);
         gbc.gridx = 1;
-        usernameField = new JTextField(20);
-        mainPanel.add(usernameField, gbc);
+        usernameField = Theme.createStyledTextField(20);
+        regCard.add(usernameField, gbc);
         
         // Email
         gbc.gridx = 0;
         gbc.gridy = 3;
-        mainPanel.add(new JLabel("Email:"), gbc);
+        regCard.add(Theme.createStyledLabel("Email", Theme.getSubheadingFont(), Theme.TEXT_PRIMARY), gbc);
         gbc.gridx = 1;
-        emailField = new JTextField(20);
-        mainPanel.add(emailField, gbc);
+        emailField = Theme.createStyledTextField(20);
+        regCard.add(emailField, gbc);
         
         // Phone
         gbc.gridx = 0;
         gbc.gridy = 4;
-        mainPanel.add(new JLabel("Phone Number:"), gbc);
+        regCard.add(Theme.createStyledLabel("Phone Number", Theme.getSubheadingFont(), Theme.TEXT_PRIMARY), gbc);
         gbc.gridx = 1;
-        phoneField = new JTextField(20);
-        mainPanel.add(phoneField, gbc);
+        phoneField = Theme.createStyledTextField(20);
+        regCard.add(phoneField, gbc);
         
         // Password
         gbc.gridx = 0;
         gbc.gridy = 5;
-        mainPanel.add(new JLabel("Password:"), gbc);
+        regCard.add(Theme.createStyledLabel("Password", Theme.getSubheadingFont(), Theme.TEXT_PRIMARY), gbc);
         gbc.gridx = 1;
-        passwordField = new JPasswordField(20);
-        mainPanel.add(passwordField, gbc);
+        passwordField = Theme.createStyledPasswordField(20);
+        regCard.add(passwordField, gbc);
         
         // Confirm Password
         gbc.gridx = 0;
         gbc.gridy = 6;
-        mainPanel.add(new JLabel("Confirm Password:"), gbc);
+        regCard.add(Theme.createStyledLabel("Confirm Password", Theme.getSubheadingFont(), Theme.TEXT_PRIMARY), gbc);
         gbc.gridx = 1;
-        confirmPasswordField = new JPasswordField(20);
-        mainPanel.add(confirmPasswordField, gbc);
+        confirmPasswordField = Theme.createStyledPasswordField(20);
+        regCard.add(confirmPasswordField, gbc);
         
         // Password hint
-        JLabel hintLabel = new JLabel("<html><small>Password must be at least 8 characters with 1 uppercase and 1 number</small></html>");
-        hintLabel.setForeground(Color.GRAY);
+        JLabel hintLabel = Theme.createStyledLabel(
+            "<html><small>Password must be at least 8 characters with 1 uppercase and 1 number</small></html>",
+            Theme.getBodyFont(), Theme.TEXT_SECONDARY);
         gbc.gridx = 0;
         gbc.gridy = 7;
         gbc.gridwidth = 2;
-        mainPanel.add(hintLabel, gbc);
+        gbc.insets = new Insets(5, 25, 20, 25);
+        regCard.add(hintLabel, gbc);
         
         // Buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout());
-        registerButton = new JButton("Register");
-        backButton = new JButton("Back to Login");
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        buttonPanel.setOpaque(false);
+        buttonPanel.setBorder(new EmptyBorder(20, 25, 30, 25));
         
-        registerButton.setBackground(new Color(60, 179, 113));
-        registerButton.setForeground(Color.BLACK);
-        backButton.setBackground(new Color(128, 128, 128));
-        backButton.setForeground(Color.BLACK);
+        registerButton = Theme.createSuccessButton("Register");
+        backButton = Theme.createSecondaryButton("Back to Login");
         
         buttonPanel.add(registerButton);
         buttonPanel.add(backButton);
         
         gbc.gridy = 8;
-        mainPanel.add(buttonPanel, gbc);
+        regCard.add(buttonPanel, gbc);
+        
+        // Scroll pane for registration card
+        JScrollPane scrollPane = new JScrollPane(regCard);
+        scrollPane.setBorder(null);
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        
+        mainContainer.add(scrollPane);
+        add(mainContainer, BorderLayout.CENTER);
         
         // Action listeners
         registerButton.addActionListener(e -> handleRegistration());
         backButton.addActionListener(e -> {
-            dispose();
-            new LoginView();
+            MainApplicationFrame.getInstance().showCard(MainApplicationFrame.LOGIN_CARD);
         });
-        
-        add(mainPanel);
-        setVisible(true);
     }
     
     private void handleRegistration() {
@@ -192,8 +207,7 @@ public class RegistrationView extends JFrame {
                 "Account created successfully! You can now login.", 
                 "Success", 
                 JOptionPane.INFORMATION_MESSAGE);
-            dispose();
-            new LoginView();
+            MainApplicationFrame.getInstance().showCard(MainApplicationFrame.LOGIN_CARD);
         } else {
             JOptionPane.showMessageDialog(this, 
                 "Registration failed. Username or email may already exist.", 

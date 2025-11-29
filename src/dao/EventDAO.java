@@ -15,7 +15,8 @@ public class EventDAO {
     
     public boolean createEvent(Event event) {
         String query = "INSERT INTO events (event_name, event_description, event_date, event_time, " +
-                      "venue_id, organizer_id, capacity, ticket_price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                      "venue_id, organizer_id, capacity, ticket_price, vvip_price, vip_price, casual_price, pricing_type, status) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, event.getEventName());
             stmt.setString(2, event.getEventDescription());
@@ -25,7 +26,20 @@ public class EventDAO {
             stmt.setInt(6, event.getOrganizerId());
             stmt.setInt(7, event.getCapacity());
             stmt.setDouble(8, event.getTicketPrice());
-            stmt.setString(9, event.getStatus());
+            
+            // Set pricing category fields
+            if ("category".equals(event.getPricingType())) {
+                stmt.setDouble(9, event.getVvipPrice());
+                stmt.setDouble(10, event.getVipPrice());
+                stmt.setDouble(11, event.getCasualPrice());
+            } else {
+                stmt.setNull(9, Types.DECIMAL);
+                stmt.setNull(10, Types.DECIMAL);
+                stmt.setNull(11, Types.DECIMAL);
+            }
+            
+            stmt.setString(12, event.getPricingType() != null ? event.getPricingType() : "single");
+            stmt.setString(13, event.getStatus());
             
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -93,7 +107,8 @@ public class EventDAO {
     
     public boolean updateEvent(Event event) {
         String query = "UPDATE events SET event_name = ?, event_description = ?, event_date = ?, " +
-                      "event_time = ?, venue_id = ?, capacity = ?, ticket_price = ?, status = ? " +
+                      "event_time = ?, venue_id = ?, capacity = ?, ticket_price = ?, " +
+                      "vvip_price = ?, vip_price = ?, casual_price = ?, pricing_type = ?, status = ? " +
                       "WHERE event_id = ?";
         try (PreparedStatement stmt = connection.prepareStatement(query)) {
             stmt.setString(1, event.getEventName());
@@ -103,8 +118,21 @@ public class EventDAO {
             stmt.setInt(5, event.getVenueId());
             stmt.setInt(6, event.getCapacity());
             stmt.setDouble(7, event.getTicketPrice());
-            stmt.setString(8, event.getStatus());
-            stmt.setInt(9, event.getEventId());
+            
+            // Set pricing category fields
+            if ("category".equals(event.getPricingType())) {
+                stmt.setDouble(8, event.getVvipPrice());
+                stmt.setDouble(9, event.getVipPrice());
+                stmt.setDouble(10, event.getCasualPrice());
+            } else {
+                stmt.setNull(8, Types.DECIMAL);
+                stmt.setNull(9, Types.DECIMAL);
+                stmt.setNull(10, Types.DECIMAL);
+            }
+            
+            stmt.setString(11, event.getPricingType() != null ? event.getPricingType() : "single");
+            stmt.setString(12, event.getStatus());
+            stmt.setInt(13, event.getEventId());
             
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -152,6 +180,24 @@ public class EventDAO {
         return 0;
     }
     
+    public Event getEventById(int eventId) {
+        String query = "SELECT e.*, v.venue_name, u.full_name as organizer_name " +
+                      "FROM events e " +
+                      "JOIN venues v ON e.venue_id = v.venue_id " +
+                      "JOIN users u ON e.organizer_id = u.user_id " +
+                      "WHERE e.event_id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(query)) {
+            stmt.setInt(1, eventId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return extractEventFromResultSet(rs);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
     private Event extractEventFromResultSet(ResultSet rs) throws SQLException {
         Event event = new Event();
         event.setEventId(rs.getInt("event_id"));
@@ -165,6 +211,23 @@ public class EventDAO {
         event.setTicketPrice(rs.getDouble("ticket_price"));
         event.setStatus(rs.getString("status"));
         event.setCreatedAt(rs.getTimestamp("created_at"));
+        
+        // Pricing category fields
+        try {
+            event.setPricingType(rs.getString("pricing_type"));
+            if (rs.getObject("vvip_price") != null) {
+                event.setVvipPrice(rs.getDouble("vvip_price"));
+            }
+            if (rs.getObject("vip_price") != null) {
+                event.setVipPrice(rs.getDouble("vip_price"));
+            }
+            if (rs.getObject("casual_price") != null) {
+                event.setCasualPrice(rs.getDouble("casual_price"));
+            }
+        } catch (SQLException e) {
+            // These fields may not exist in older database schemas
+            event.setPricingType("single");
+        }
         
         // Additional fields
         try {

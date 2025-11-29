@@ -290,75 +290,153 @@ public class BookingManagementPanel extends JPanel {
             return;
         }
         
-        // Create printable ticket content
-        StringBuilder ticketContent = new StringBuilder();
-        ticketContent.append("========================================\n");
-        ticketContent.append("        EVENT TICKET\n");
-        ticketContent.append("========================================\n\n");
-        ticketContent.append("Ticket Number: ").append(booking.getTicketNumber()).append("\n");
-        ticketContent.append("Booking ID: ").append(booking.getBookingId()).append("\n\n");
-        ticketContent.append("Event: ").append(booking.getEventName()).append("\n");
+        // Check if payment is approved (status = 'paid')
+        if (!"paid".equalsIgnoreCase(booking.getPaymentStatus())) {
+            String message = "Ticket cannot be printed!\n\n";
+            message += "Payment Status: " + booking.getPaymentStatus().toUpperCase() + "\n";
+            message += "Only bookings with PAID status can be printed.\n\n";
+            
+            if ("pending".equalsIgnoreCase(booking.getPaymentStatus())) {
+                message += "Please wait for admin to approve your payment.";
+            } else if ("cancelled".equalsIgnoreCase(booking.getPaymentStatus())) {
+                message += "This booking has been cancelled.";
+            } else if ("refunded".equalsIgnoreCase(booking.getPaymentStatus())) {
+                message += "This booking has been refunded.";
+            }
+            
+            JOptionPane.showMessageDialog(this, 
+                message,
+                "Payment Not Approved", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        try {
+            // Create HTML ticket
+            String html = generateTicketHTML(booking);
+            
+            // Save to temp file
+            java.io.File tempFile = java.io.File.createTempFile("ticket_" + booking.getTicketNumber(), ".html");
+            java.io.FileWriter writer = new java.io.FileWriter(tempFile);
+            writer.write(html);
+            writer.close();
+            
+            // Open in browser
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().browse(tempFile.toURI());
+                JOptionPane.showMessageDialog(this,
+                    "Ticket opened in browser. Use Ctrl+P or Cmd+P to print.",
+                    "Print Ready",
+                    JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Ticket saved to: " + tempFile.getAbsolutePath(),
+                    "Ticket Saved",
+                    JOptionPane.INFORMATION_MESSAGE);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                "Failed to generate ticket: " + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+    
+    private String generateTicketHTML(Booking booking) {
+        StringBuilder html = new StringBuilder();
+        html.append("<!DOCTYPE html>\n");
+        html.append("<html>\n<head>\n");
+        html.append("<meta charset='UTF-8'>\n");
+        html.append("<title>Ticket - ").append(booking.getTicketNumber()).append("</title>\n");
+        html.append("<style>\n");
+        html.append("@media print { .no-print { display: none; } }\n");
+        html.append("body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }\n");
+        html.append(".ticket { border: 3px solid #6366F1; border-radius: 15px; padding: 30px; background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%); }\n");
+        html.append(".header { text-align: center; border-bottom: 2px dashed #6366F1; padding-bottom: 20px; margin-bottom: 20px; }\n");
+        html.append(".header h1 { color: #6366F1; margin: 0; font-size: 32px; }\n");
+        html.append(".ticket-number { background: #6366F1; color: white; padding: 10px 20px; border-radius: 25px; display: inline-block; margin: 10px 0; font-size: 18px; font-weight: bold; }\n");
+        html.append(".section { margin: 20px 0; }\n");
+        html.append(".section-title { color: #6366F1; font-size: 18px; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }\n");
+        html.append(".info-row { display: flex; padding: 8px 0; }\n");
+        html.append(".info-label { font-weight: bold; width: 180px; color: #4b5563; }\n");
+        html.append(".info-value { color: #111827; }\n");
+        html.append(".total { background: #f3f4f6; padding: 15px; border-radius: 8px; text-align: right; font-size: 20px; font-weight: bold; color: #6366F1; margin-top: 20px; }\n");
+        html.append(".footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px dashed #6366F1; color: #6b7280; }\n");
+        html.append(".print-btn { background: #6366F1; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 20px auto; display: block; }\n");
+        html.append(".print-btn:hover { background: #4f46e5; }\n");
+        html.append("</style>\n");
+        html.append("<script>\n");
+        html.append("window.onload = function() { setTimeout(function(){ window.print(); }, 500); };\n");
+        html.append("</script>\n");
+        html.append("</head>\n<body>\n");
+        
+        html.append("<div class='ticket'>\n");
+        html.append("<div class='header'>\n");
+        html.append("<h1>🎫 EVENT TICKET</h1>\n");
+        html.append("<div class='ticket-number'>").append(booking.getTicketNumber()).append("</div>\n");
+        html.append("</div>\n");
+        
+        // Event Details
+        html.append("<div class='section'>\n");
+        html.append("<div class='section-title'>📅 Event Details</div>\n");
+        html.append("<div class='info-row'><div class='info-label'>Event:</div><div class='info-value'>").append(booking.getEventName()).append("</div></div>\n");
         if (booking.getEventDescription() != null && !booking.getEventDescription().isEmpty()) {
-            ticketContent.append("Description: ").append(booking.getEventDescription()).append("\n");
+            html.append("<div class='info-row'><div class='info-label'>Description:</div><div class='info-value'>").append(booking.getEventDescription()).append("</div></div>\n");
         }
-        ticketContent.append("Date: ").append(booking.getEventDate()).append("\n");
+        html.append("<div class='info-row'><div class='info-label'>Date:</div><div class='info-value'>").append(booking.getEventDate()).append("</div></div>\n");
         if (booking.getEventTime() != null) {
-            ticketContent.append("Time: ").append(booking.getEventTime()).append("\n");
+            html.append("<div class='info-row'><div class='info-label'>Time:</div><div class='info-value'>").append(booking.getEventTime()).append("</div></div>\n");
         }
-        ticketContent.append("Venue: ").append(booking.getVenueName()).append("\n");
+        html.append("</div>\n");
+        
+        // Venue Details
+        html.append("<div class='section'>\n");
+        html.append("<div class='section-title'>📍 Venue Information</div>\n");
+        html.append("<div class='info-row'><div class='info-label'>Venue:</div><div class='info-value'>").append(booking.getVenueName()).append("</div></div>\n");
         if (booking.getVenueLocation() != null) {
-            ticketContent.append("Location: ").append(booking.getVenueLocation()).append("\n");
+            html.append("<div class='info-row'><div class='info-label'>Location:</div><div class='info-value'>").append(booking.getVenueLocation()).append("</div></div>\n");
         }
-        ticketContent.append("\n");
-        ticketContent.append("Customer: ").append(booking.getUserName()).append("\n");
+        html.append("</div>\n");
+        
+        // Customer Details
+        html.append("<div class='section'>\n");
+        html.append("<div class='section-title'>👤 Customer Information</div>\n");
+        html.append("<div class='info-row'><div class='info-label'>Name:</div><div class='info-value'>").append(booking.getUserName()).append("</div></div>\n");
         if (booking.getUserEmail() != null) {
-            ticketContent.append("Email: ").append(booking.getUserEmail()).append("\n");
+            html.append("<div class='info-row'><div class='info-label'>Email:</div><div class='info-value'>").append(booking.getUserEmail()).append("</div></div>\n");
         }
         if (booking.getUserPhone() != null) {
-            ticketContent.append("Phone: ").append(booking.getUserPhone()).append("\n");
+            html.append("<div class='info-row'><div class='info-label'>Phone:</div><div class='info-value'>").append(booking.getUserPhone()).append("</div></div>\n");
         }
-        ticketContent.append("\n");
-        ticketContent.append("Number of Tickets: ").append(booking.getNumberOfTickets()).append("\n");
+        html.append("</div>\n");
+        
+        // Ticket Details
+        html.append("<div class='section'>\n");
+        html.append("<div class='section-title'>🎟️ Ticket Information</div>\n");
+        html.append("<div class='info-row'><div class='info-label'>Booking ID:</div><div class='info-value'>#").append(booking.getBookingId()).append("</div></div>\n");
+        html.append("<div class='info-row'><div class='info-label'>Number of Tickets:</div><div class='info-value'>").append(booking.getNumberOfTickets()).append("</div></div>\n");
         if (booking.getTicketCategory() != null) {
-            ticketContent.append("Category: ").append(booking.getTicketCategory().toUpperCase()).append("\n");
+            html.append("<div class='info-row'><div class='info-label'>Category:</div><div class='info-value'>").append(booking.getTicketCategory().toUpperCase()).append("</div></div>\n");
         }
-        ticketContent.append("Total Amount: RWF ").append(String.format("%.2f", booking.getTotalAmount())).append("\n");
-        ticketContent.append("Status: ").append(booking.getPaymentStatus().toUpperCase()).append("\n");
-        ticketContent.append("\n");
-        ticketContent.append("========================================\n");
-        ticketContent.append("Thank you for your booking!\n");
-        ticketContent.append("========================================\n");
+        html.append("<div class='info-row'><div class='info-label'>Status:</div><div class='info-value' style='color: #10b981; font-weight: bold;'>").append(booking.getPaymentStatus().toUpperCase()).append("</div></div>\n");
+        html.append("</div>\n");
         
-        // Show ticket in a dialog with print option
-        JTextArea ticketArea = new JTextArea(ticketContent.toString());
-        ticketArea.setFont(new Font("Courier New", Font.PLAIN, 12));
-        ticketArea.setEditable(false);
-        JScrollPane scrollPane = new JScrollPane(ticketArea);
-        scrollPane.setPreferredSize(new Dimension(500, 400));
+        // Total
+        html.append("<div class='total'>Total Amount: RWF ").append(String.format("%.2f", booking.getTotalAmount())).append("</div>\n");
         
-        int option = JOptionPane.showOptionDialog(this,
-            scrollPane,
-            "Ticket Details - " + booking.getTicketNumber(),
-            JOptionPane.OK_CANCEL_OPTION,
-            JOptionPane.INFORMATION_MESSAGE,
-            null,
-            new Object[]{"Print", "Close"},
-            "Print");
+        // Footer
+        html.append("<div class='footer'>\n");
+        html.append("<p><strong>Thank you for your booking!</strong></p>\n");
+        html.append("<p>Please present this ticket at the venue entrance.</p>\n");
+        html.append("<p style='font-size: 12px; color: #9ca3af;'>Generated on ").append(new java.util.Date()).append("</p>\n");
+        html.append("</div>\n");
         
-        if (option == 0) { // Print button clicked
-            try {
-                ticketArea.print();
-                JOptionPane.showMessageDialog(this,
-                    "Ticket sent to printer!",
-                    "Print Success",
-                    JOptionPane.INFORMATION_MESSAGE);
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this,
-                    "Failed to print ticket: " + e.getMessage(),
-                    "Print Error",
-                    JOptionPane.ERROR_MESSAGE);
-            }
-        }
+        html.append("</div>\n");
+        html.append("<button class='print-btn no-print' onclick='window.print()'>🖨️ Print Ticket</button>\n");
+        html.append("</body>\n</html>");
+        
+        return html.toString();
     }
 }
 

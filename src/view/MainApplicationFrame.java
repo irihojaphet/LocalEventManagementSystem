@@ -58,10 +58,10 @@ public class MainApplicationFrame extends JFrame {
     
     public void showCard(String cardName) {
         // For dashboard and booking management cards, always recreate to refresh data and menu bars
+        // EventManagement should not be recreated to avoid table refresh issues
         boolean shouldRecreate = cardName.equals(ADMIN_DASHBOARD_CARD) || 
                                  cardName.equals(CUSTOMER_DASHBOARD_CARD) ||
-                                 cardName.equals(BOOKING_MANAGEMENT_CARD) ||
-                                 cardName.equals(EVENT_MANAGEMENT_CARD);
+                                 cardName.equals(BOOKING_MANAGEMENT_CARD);
         
         // Remove existing card if it should be recreated (to force refresh)
         if (shouldRecreate) {

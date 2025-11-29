@@ -140,8 +140,12 @@ public class EventManagementPanel extends JPanel {
         panel.add(new JLabel("Venue:"), gbc);
         gbc.gridx = 1;
         venueCombo = Theme.createStyledComboBox();
+        venueCombo.setPreferredSize(new Dimension(200, 30)); // Set explicit size to prevent invalid calculations
+        venueCombo.setMaximumSize(new Dimension(300, 30));
+        venueCombo.setMinimumSize(new Dimension(150, 30));
         loadVenues();
         JPanel venuePanel = new JPanel(new BorderLayout(5, 0));
+        venuePanel.setMaximumSize(new Dimension(400, 40)); // Constrain panel size
         venuePanel.add(venueCombo, BorderLayout.CENTER);
         JButton addVenueButton = new JButton("Add Venue");
         addVenueButton.addActionListener(e -> openAddVenueDialog());
@@ -179,6 +183,10 @@ public class EventManagementPanel extends JPanel {
         panel.add(Theme.createStyledLabel("Status:", Theme.getSubheadingFont(), Theme.TEXT_PRIMARY), gbc);
         gbc.gridx = 3;
         statusCombo = Theme.createStyledComboBox();
+        statusCombo.setPreferredSize(new Dimension(150, 30)); // Set explicit size to prevent invalid calculations
+        statusCombo.setMaximumSize(new Dimension(200, 30));
+        statusCombo.setMinimumSize(new Dimension(100, 30));
+        statusCombo.setPrototypeDisplayValue("completed"); // Prevent size changes based on content
         statusCombo.addItem("scheduled");
         statusCombo.addItem("ongoing");
         statusCombo.addItem("completed");
@@ -278,13 +286,21 @@ public class EventManagementPanel extends JPanel {
         eventsTable = new JTable(tableModel);
         Theme.styleTable(eventsTable);
         eventsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        eventsTable.setFocusable(true);
+        eventsTable.setRowSelectionAllowed(true);
+        eventsTable.setColumnSelectionAllowed(false);
         
-        // Add listener to load event data when row is selected
-        eventsTable.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                loadSelectedEventToForm();
-            }
+        // Ensure header styling persists - add property change listener
+        javax.swing.table.JTableHeader header = eventsTable.getTableHeader();
+        header.addPropertyChangeListener(evt -> {
+            // Re-apply header styling whenever header properties change
+            header.setOpaque(true);
+            header.setBackground(Theme.PRIMARY_COLOR);
+            header.setForeground(Color.WHITE);
         });
+        
+        // DISABLED: Auto-loading form on row selection causes ComboBox issues
+        // Users can use Update button to load selected event into form
         
         JScrollPane scrollPane = new JScrollPane(eventsTable);
         scrollPane.setBorder(null);
@@ -427,63 +443,257 @@ public class EventManagementPanel extends JPanel {
             return;
         }
         
-        if (!validateForm()) return;
-        
         try {
             int eventId = (int) tableModel.getValueAt(selectedRow, 0);
+            Event event = eventDAO.getEventById(eventId);
             
-            Event event = new Event();
-            event.setEventId(eventId);
-            event.setEventName(nameField.getText().trim());
-            
-            // Handle pricing
-            String description = descriptionArea.getText().trim();
-            // Remove any old JSON pricing info if it exists
-            description = description.replaceAll("\\[PRICING_INFO\\].*?\\[/PRICING_INFO\\]", "").trim();
-            
-            if (categoryPriceRadio.isSelected()) {
-                double vvipPrice = Double.parseDouble(vvipPriceField.getText().trim());
-                double vipPrice = Double.parseDouble(vipPriceField.getText().trim());
-                double casualPrice = Double.parseDouble(casualPriceField.getText().trim());
-                
-                event.setPricingType("category");
-                event.setVvipPrice(vvipPrice);
-                event.setVipPrice(vipPrice);
-                event.setCasualPrice(casualPrice);
-                event.setTicketPrice(casualPrice); // Use casual as base price for database
-            } else {
-                event.setPricingType("single");
-                event.setTicketPrice(Double.parseDouble(priceField.getText().trim()));
+            if (event == null) {
+                JOptionPane.showMessageDialog(this, 
+                    "Event not found!", 
+                    "Error", 
+                    JOptionPane.ERROR_MESSAGE);
+                return;
             }
             
-            event.setEventDescription(description);
-            event.setEventDate(Date.valueOf(dateField.getText().trim()));
-            event.setEventTime(Time.valueOf(timeField.getText().trim() + ":00"));
+            // Open update dialog
+            openUpdateDialog(event);
             
-            Venue selectedVenue = (Venue) venueCombo.getSelectedItem();
-            event.setVenueId(selectedVenue.getVenueId());
-            event.setCapacity(Integer.parseInt(capacityField.getText().trim()));
-            event.setStatus((String) statusCombo.getSelectedItem());
-            
-            if (eventDAO.updateEvent(event)) {
-                JOptionPane.showMessageDialog(this, 
-                    "Event updated successfully!", 
-                    "Success", 
-                    JOptionPane.INFORMATION_MESSAGE);
-                clearForm();
-                loadEvents();
-            } else {
-                JOptionPane.showMessageDialog(this, 
-                    "Failed to update event.", 
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, 
+                "Error loading event for update.", 
+                "Error", 
+                JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+    }
+    
+    private void openUpdateDialog(Event event) {
+        JDialog dialog = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Update Event", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(600, 700);
+        dialog.setLocationRelativeTo(this);
+        
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
+        formPanel.setBackground(Theme.BACKGROUND_WHITE);
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.gridwidth = 2;
+        
+        // Title
+        gbc.gridx = 0; gbc.gridy = 0;
+        JLabel titleLabel = new JLabel("Update Event: " + event.getEventName());
+        titleLabel.setFont(Theme.getHeadingFont());
+        titleLabel.setForeground(Theme.PRIMARY_COLOR);
+        formPanel.add(titleLabel, gbc);
+        
+        gbc.gridwidth = 1;
+        
+        // Event Name
+        gbc.gridy++;
+        gbc.gridx = 0;
+        formPanel.add(new JLabel("Event Name:"), gbc);
+        gbc.gridx = 1;
+        JTextField nameFieldD = Theme.createStyledTextField(20);
+        nameFieldD.setText(event.getEventName());
+        formPanel.add(nameFieldD, gbc);
+        
+        // Description
+        gbc.gridy++;
+        gbc.gridx = 0;
+        formPanel.add(new JLabel("Description:"), gbc);
+        gbc.gridx = 1;
+        JTextArea descArea = Theme.createStyledTextArea(3, 20);
+        String desc = event.getEventDescription();
+        if (desc != null) {
+            desc = desc.replaceAll("\\[PRICING_INFO\\].*?\\[/PRICING_INFO\\]", "").trim();
+        }
+        descArea.setText(desc != null ? desc : "");
+        JScrollPane descScroll = new JScrollPane(descArea);
+        formPanel.add(descScroll, gbc);
+        
+        // Date
+        gbc.gridy++;
+        gbc.gridx = 0;
+        formPanel.add(new JLabel("Date (YYYY-MM-DD):"), gbc);
+        gbc.gridx = 1;
+        JTextField dateFieldD = new JTextField(15);
+        dateFieldD.setText(event.getEventDate().toString());
+        formPanel.add(dateFieldD, gbc);
+        
+        // Time
+        gbc.gridy++;
+        gbc.gridx = 0;
+        formPanel.add(new JLabel("Time (HH:MM):"), gbc);
+        gbc.gridx = 1;
+        JTextField timeFieldD = new JTextField(15);
+        timeFieldD.setText(event.getEventTime().toString().substring(0, 5));
+        formPanel.add(timeFieldD, gbc);
+        
+        // Capacity
+        gbc.gridy++;
+        gbc.gridx = 0;
+        formPanel.add(new JLabel("Capacity:"), gbc);
+        gbc.gridx = 1;
+        JTextField capacityFieldD = new JTextField(15);
+        capacityFieldD.setText(String.valueOf(event.getCapacity()));
+        formPanel.add(capacityFieldD, gbc);
+        
+        // Pricing Type
+        gbc.gridy++;
+        gbc.gridx = 0;
+        formPanel.add(new JLabel("Pricing Type:"), gbc);
+        gbc.gridx = 1;
+        JRadioButton singleRadio = new JRadioButton("Single Price");
+        JRadioButton categoryRadio = new JRadioButton("Category Pricing");
+        ButtonGroup pricingGroup = new ButtonGroup();
+        pricingGroup.add(singleRadio);
+        pricingGroup.add(categoryRadio);
+        
+        JPanel pricingTypePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        pricingTypePanel.add(singleRadio);
+        pricingTypePanel.add(categoryRadio);
+        formPanel.add(pricingTypePanel, gbc);
+        
+        // Single Price
+        gbc.gridy++;
+        gbc.gridx = 0;
+        JLabel singlePriceLabel = new JLabel("Ticket Price:");
+        formPanel.add(singlePriceLabel, gbc);
+        gbc.gridx = 1;
+        JTextField priceFieldD = Theme.createStyledTextField(15);
+        formPanel.add(priceFieldD, gbc);
+        
+        // Category Prices
+        gbc.gridy++;
+        gbc.gridx = 0;
+        JLabel vvipLabel = new JLabel("VVIP Price:");
+        formPanel.add(vvipLabel, gbc);
+        gbc.gridx = 1;
+        JTextField vvipFieldD = Theme.createStyledTextField(15);
+        formPanel.add(vvipFieldD, gbc);
+        
+        gbc.gridy++;
+        gbc.gridx = 0;
+        JLabel vipLabel = new JLabel("VIP Price:");
+        formPanel.add(vipLabel, gbc);
+        gbc.gridx = 1;
+        JTextField vipFieldD = Theme.createStyledTextField(15);
+        formPanel.add(vipFieldD, gbc);
+        
+        gbc.gridy++;
+        gbc.gridx = 0;
+        JLabel casualLabel = new JLabel("Casual Price:");
+        formPanel.add(casualLabel, gbc);
+        gbc.gridx = 1;
+        JTextField casualFieldD = Theme.createStyledTextField(15);
+        formPanel.add(casualFieldD, gbc);
+        
+        // Set initial values and visibility
+        if ("category".equals(event.getPricingType()) && event.getVvipPrice() > 0) {
+            categoryRadio.setSelected(true);
+            vvipFieldD.setText(String.format("%.2f", event.getVvipPrice()));
+            vipFieldD.setText(String.format("%.2f", event.getVipPrice()));
+            casualFieldD.setText(String.format("%.2f", event.getCasualPrice()));
+            priceFieldD.setEnabled(false);
+            singlePriceLabel.setEnabled(false);
+        } else {
+            singleRadio.setSelected(true);
+            priceFieldD.setText(String.format("%.2f", event.getTicketPrice()));
+            vvipLabel.setEnabled(false);
+            vvipFieldD.setEnabled(false);
+            vipLabel.setEnabled(false);
+            vipFieldD.setEnabled(false);
+            casualLabel.setEnabled(false);
+            casualFieldD.setEnabled(false);
+        }
+        
+        // Pricing type listeners
+        singleRadio.addActionListener(e -> {
+            priceFieldD.setEnabled(true);
+            singlePriceLabel.setEnabled(true);
+            vvipLabel.setEnabled(false);
+            vvipFieldD.setEnabled(false);
+            vipLabel.setEnabled(false);
+            vipFieldD.setEnabled(false);
+            casualLabel.setEnabled(false);
+            casualFieldD.setEnabled(false);
+        });
+        
+        categoryRadio.addActionListener(e -> {
+            priceFieldD.setEnabled(false);
+            singlePriceLabel.setEnabled(false);
+            vvipLabel.setEnabled(true);
+            vvipFieldD.setEnabled(true);
+            vipLabel.setEnabled(true);
+            vipFieldD.setEnabled(true);
+            casualLabel.setEnabled(true);
+            casualFieldD.setEnabled(true);
+        });
+        
+        // Buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        buttonPanel.setBackground(Theme.BACKGROUND_WHITE);
+        
+        JButton saveButton = Theme.createSuccessButton("Save Changes");
+        JButton cancelButton = Theme.createDangerButton("Cancel");
+        
+        saveButton.addActionListener(e -> {
+            try {
+                // Validate and update
+                Event updatedEvent = new Event();
+                updatedEvent.setEventId(event.getEventId());
+                updatedEvent.setEventName(nameFieldD.getText().trim());
+                updatedEvent.setEventDescription(descArea.getText().trim());
+                updatedEvent.setEventDate(Date.valueOf(dateFieldD.getText().trim()));
+                updatedEvent.setEventTime(Time.valueOf(timeFieldD.getText().trim() + ":00"));
+                updatedEvent.setCapacity(Integer.parseInt(capacityFieldD.getText().trim()));
+                updatedEvent.setVenueId(event.getVenueId()); // Keep same venue
+                
+                if (categoryRadio.isSelected()) {
+                    updatedEvent.setPricingType("category");
+                    updatedEvent.setVvipPrice(Double.parseDouble(vvipFieldD.getText().trim()));
+                    updatedEvent.setVipPrice(Double.parseDouble(vipFieldD.getText().trim()));
+                    updatedEvent.setCasualPrice(Double.parseDouble(casualFieldD.getText().trim()));
+                    updatedEvent.setTicketPrice(updatedEvent.getCasualPrice());
+                } else {
+                    updatedEvent.setPricingType("single");
+                    updatedEvent.setTicketPrice(Double.parseDouble(priceFieldD.getText().trim()));
+                }
+                
+                updatedEvent.setStatus(event.getStatus()); // Keep same status
+                
+                if (eventDAO.updateEvent(updatedEvent)) {
+                    JOptionPane.showMessageDialog(dialog, 
+                        "Event updated successfully!", 
+                        "Success", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
+                    loadEvents();
+                } else {
+                    JOptionPane.showMessageDialog(dialog, 
+                        "Failed to update event.", 
+                        "Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog, 
+                    "Invalid input: " + ex.getMessage(), 
                     "Error", 
                     JOptionPane.ERROR_MESSAGE);
             }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, 
-                "Invalid input format.", 
-                "Input Error", 
-                JOptionPane.ERROR_MESSAGE);
-        }
+        });
+        
+        cancelButton.addActionListener(e -> dialog.dispose());
+        
+        buttonPanel.add(saveButton);
+        buttonPanel.add(cancelButton);
+        
+        dialog.add(new JScrollPane(formPanel), BorderLayout.CENTER);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+        dialog.setVisible(true);
     }
     
     private void deleteEvent() {
@@ -608,6 +818,16 @@ public class EventManagementPanel extends JPanel {
         }
         revalidate();
         repaint();
+        
+        // Ensure table header styling persists after revalidation
+        if (eventsTable != null) {
+            javax.swing.table.JTableHeader header = eventsTable.getTableHeader();
+            if (header != null) {
+                header.setOpaque(true);
+                header.setBackground(Theme.PRIMARY_COLOR);
+                header.setForeground(Color.WHITE);
+            }
+        }
     }
     
     private void loadSelectedEventToForm() {
@@ -621,7 +841,7 @@ public class EventManagementPanel extends JPanel {
             Event event = eventDAO.getEventById(eventId);
             
             if (event != null) {
-                nameField.setText(event.getEventName());
+                nameField.setText(event.getEventName() != null ? event.getEventName() : "");
                 
                 // Clean description (remove old JSON pricing info if exists)
                 String description = event.getEventDescription();
@@ -630,17 +850,34 @@ public class EventManagementPanel extends JPanel {
                 }
                 descriptionArea.setText(description != null ? description : "");
                 
-                dateField.setText(event.getEventDate().toString());
-                timeField.setText(event.getEventTime().toString().substring(0, 5)); // HH:MM format
+                if (event.getEventDate() != null) {
+                    dateField.setText(event.getEventDate().toString());
+                }
+                if (event.getEventTime() != null) {
+                    timeField.setText(event.getEventTime().toString().substring(0, 5)); // HH:MM format
+                }
                 capacityField.setText(String.valueOf(event.getCapacity()));
-                statusCombo.setSelectedItem(event.getStatus());
+                if (event.getStatus() != null) {
+                    // Hide popup before changing selection to prevent layout issues
+                    statusCombo.hidePopup();
+                    statusCombo.setSelectedItem(event.getStatus());
+                }
                 
-                // Set venue
-                for (int i = 0; i < venueCombo.getItemCount(); i++) {
-                    Venue venue = venueCombo.getItemAt(i);
-                    if (venue.getVenueId() == event.getVenueId()) {
-                        venueCombo.setSelectedIndex(i);
-                        break;
+                // Set venue - wrap in try-catch to prevent layout errors
+                if (event.getVenueId() > 0) {
+                    try {
+                        // Hide popup before changing selection to prevent layout issues
+                        venueCombo.hidePopup();
+                        for (int i = 0; i < venueCombo.getItemCount(); i++) {
+                            Venue venue = venueCombo.getItemAt(i);
+                            if (venue != null && venue.getVenueId() == event.getVenueId()) {
+                                venueCombo.setSelectedIndex(i);
+                                break;
+                            }
+                        }
+                    } catch (Exception ex) {
+                        // Ignore selection errors - prevents ComboBox layout issues
+                        ex.printStackTrace();
                     }
                 }
                 
@@ -658,6 +895,15 @@ public class EventManagementPanel extends JPanel {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            // Ensure header styling persists even if there's an error
+            if (eventsTable != null) {
+                javax.swing.table.JTableHeader header = eventsTable.getTableHeader();
+                if (header != null) {
+                    header.setOpaque(true);
+                    header.setBackground(Theme.PRIMARY_COLOR);
+                    header.setForeground(Color.WHITE);
+                }
+            }
         }
     }
     

@@ -366,43 +366,60 @@ public class Theme {
         table.setBackground(BACKGROUND_WHITE);
         table.setForeground(TEXT_PRIMARY);
         
-        // Header styling
+        // Header styling - ensure it's always visible
         JTableHeader header = table.getTableHeader();
         header.setFont(getSubheadingFont());
         header.setBackground(PRIMARY_COLOR);
         header.setForeground(Color.WHITE);
+        header.setOpaque(true);
         header.setPreferredSize(new Dimension(header.getWidth(), 50));
         header.setReorderingAllowed(false);
+        
+        // Use a custom renderer that always maintains the header styling
+        header.setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+            {
+                setOpaque(true);
+                setBackground(PRIMARY_COLOR);
+                setForeground(Color.WHITE);
+                setHorizontalAlignment(JLabel.CENTER);
+                setFont(getSubheadingFont());
+                setBorder(new EmptyBorder(10, 10, 10, 10));
+            }
+            
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                    boolean isSelected, boolean hasFocus, int row, int column) {
+                super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setOpaque(true);
+                setBackground(PRIMARY_COLOR);
+                setForeground(Color.WHITE);
+                setHorizontalAlignment(JLabel.CENTER);
+                return this;
+            }
+        });
     }
     
-    // Styled ComboBox
+    // Styled ComboBox - use Basic UI to avoid Windows LAF conflicts
     public static <T> JComboBox<T> createStyledComboBox() {
         JComboBox<T> combo = new JComboBox<T>() {
             @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                
-                g2.setColor(BACKGROUND_WHITE);
-                RoundRectangle2D roundedRectangle = new RoundRectangle2D.Float(
-                    0, 0, getWidth(), getHeight(), 8, 8
-                );
-                g2.fill(roundedRectangle);
-                
-                g2.setColor(BORDER_COLOR);
-                g2.setStroke(new BasicStroke(1.5f));
-                g2.draw(roundedRectangle);
-                
-                g2.dispose();
-                super.paintComponent(g);
+            public void updateUI() {
+                // Force Basic UI to avoid Windows LAF painting issues
+                setUI(new javax.swing.plaf.basic.BasicComboBoxUI());
             }
         };
+        
+        // Force update to apply Basic UI
+        combo.updateUI();
         
         combo.setFont(getBodyFont());
         combo.setForeground(TEXT_PRIMARY);
         combo.setBackground(BACKGROUND_WHITE);
-        combo.setBorder(new EmptyBorder(8, 12, 8, 12));
-        combo.setOpaque(false);
+        combo.setOpaque(true);
+        combo.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_COLOR, 1),
+            new EmptyBorder(4, 8, 4, 8)
+        ));
         
         return combo;
     }

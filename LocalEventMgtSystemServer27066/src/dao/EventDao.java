@@ -91,21 +91,40 @@ public class EventDao {
             Session ss = HibernateUtil.getSessionFactory().openSession();
             Transaction tr = ss.beginTransaction();
             
-            // Check for existing paid bookings
-            Query<Long> checkQuery = ss.createQuery(
-                "SELECT COUNT(*) FROM Booking WHERE event.eventId = :eventId AND paymentStatus = 'paid'", 
-                Long.class
-            );
-            checkQuery.setParameter("eventId", eventObj.getEventId());
-            Long count = checkQuery.uniqueResult();
-            
-            if (count != null && count > 0) {
+            // Load the event to check if it's expired
+            Event existingEvent = ss.get(Event.class, eventObj.getEventId());
+            if (existingEvent == null) {
                 tr.rollback();
                 ss.close();
-                return null; // Cannot delete event with paid bookings
+                return null;
             }
             
-            ss.delete(eventObj);
+            // Check if event is expired (event date has passed)
+            boolean isExpired = false;
+            if (existingEvent.getEventDate() != null) {
+                java.util.Date today = new java.util.Date();
+                java.util.Date eventDate = new java.util.Date(existingEvent.getEventDate().getTime());
+                isExpired = eventDate.before(today);
+            }
+            
+            // Only check for paid bookings if event is NOT expired
+            // Expired events can be deleted even with paid bookings (event has passed, tickets used)
+            if (!isExpired) {
+                Query<Long> checkQuery = ss.createQuery(
+                    "SELECT COUNT(*) FROM Booking WHERE event.eventId = :eventId AND paymentStatus = 'paid'", 
+                    Long.class
+                );
+                checkQuery.setParameter("eventId", eventObj.getEventId());
+                Long count = checkQuery.uniqueResult();
+                
+                if (count != null && count > 0) {
+                    tr.rollback();
+                    ss.close();
+                    return null; // Cannot delete non-expired event with paid bookings
+                }
+            }
+            
+            ss.delete(existingEvent);
             tr.commit();
             ss.close();
             return eventObj;

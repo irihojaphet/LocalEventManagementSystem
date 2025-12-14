@@ -7,6 +7,8 @@ import java.awt.*;
 public class MainApplicationFrame extends JFrame {
     private CardLayout cardLayout;
     private JPanel cardPanel;
+    private NavigationPanel navigationPanel;
+    private JPanel mainContentPanel;
     
     // Card names
     public static final String LOGIN_CARD = "LOGIN";
@@ -32,7 +34,7 @@ public class MainApplicationFrame extends JFrame {
         
         setTitle("Event Management System");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1200, 800);
+        setSize(1400, 850);
         setLocationRelativeTo(null);
         
         // Set application icon (if available)
@@ -41,6 +43,13 @@ public class MainApplicationFrame extends JFrame {
         } catch (Exception e) {
             // Icon not found, continue without it
         }
+        
+        // Main container with navigation
+        mainContentPanel = new JPanel(new BorderLayout());
+        
+        // Initialize navigation panel (hidden initially)
+        navigationPanel = new NavigationPanel();
+        navigationPanel.setVisible(false);
         
         // Initialize all views as panels
         LoginPanel loginPanel = new LoginPanel();
@@ -51,14 +60,21 @@ public class MainApplicationFrame extends JFrame {
         cardPanel.add(loginPanel, LOGIN_CARD);
         cardPanel.add(registrationPanel, REGISTRATION_CARD);
         
-        add(cardPanel);
+        // Add navigation and content to main panel
+        mainContentPanel.add(navigationPanel, BorderLayout.WEST);
+        mainContentPanel.add(cardPanel, BorderLayout.CENTER);
+        
+        add(mainContentPanel);
         showCard(LOGIN_CARD);
         setVisible(true);
     }
     
     public void showCard(String cardName) {
-        // For dashboard and booking management cards, always recreate to refresh data and menu bars
-        // EventManagement should not be recreated to avoid table refresh issues
+        // Show/hide navigation based on login status
+        boolean isLoggedIn = !cardName.equals(LOGIN_CARD) && !cardName.equals(REGISTRATION_CARD);
+        setNavigationVisible(isLoggedIn);
+        
+        // For dashboard and booking management cards, always recreate to refresh data
         boolean shouldRecreate = cardName.equals(ADMIN_DASHBOARD_CARD) || 
                                  cardName.equals(CUSTOMER_DASHBOARD_CARD) ||
                                  cardName.equals(BOOKING_MANAGEMENT_CARD);
@@ -110,8 +126,28 @@ public class MainApplicationFrame extends JFrame {
         }
         
         cardLayout.show(cardPanel, cardName);
+        
+        // Update navigation if logged in
+        if (isLoggedIn && navigationPanel != null) {
+            navigationPanel.updateUserInfo();
+            navigationPanel.refreshMenu();
+            navigationPanel.refreshNotificationBadge();
+        }
+        
         revalidate();
         repaint();
+    }
+    
+    public void setNavigationVisible(boolean visible) {
+        if (navigationPanel != null) {
+            navigationPanel.setVisible(visible);
+            revalidate();
+            repaint();
+        }
+    }
+    
+    public NavigationPanel getNavigationPanel() {
+        return navigationPanel;
     }
 }
 

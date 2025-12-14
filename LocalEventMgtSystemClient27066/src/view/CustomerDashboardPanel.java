@@ -20,28 +20,8 @@ public class CustomerDashboardPanel extends JPanel {
     public CustomerDashboardPanel() {
         eventDAO = new EventDAO();
         bookingController = new BookingController();
-        setupMenuBar();
         initializeUI();
         loadEvents();
-    }
-    
-    private void setupMenuBar() {
-        JMenuBar menuBar = Theme.createStyledMenuBar();
-        
-        JMenu bookingsMenu = Theme.createStyledMenu("My Bookings");
-        JMenuItem viewBookingsItem = Theme.createStyledMenuItem("View My Bookings");
-        viewBookingsItem.addActionListener(e -> openMyBookings());
-        bookingsMenu.add(viewBookingsItem);
-        
-        JMenu accountMenu = Theme.createStyledMenu("Account");
-        JMenuItem logoutItem = Theme.createStyledMenuItem("Logout");
-        logoutItem.addActionListener(e -> logout());
-        accountMenu.add(logoutItem);
-        
-        menuBar.add(bookingsMenu);
-        menuBar.add(accountMenu);
-        
-        MainApplicationFrame.getInstance().setJMenuBar(menuBar);
     }
     
     private void initializeUI() {
@@ -280,12 +260,6 @@ public class CustomerDashboardPanel extends JPanel {
     
     private void openMyBookings() {
         MainApplicationFrame.getInstance().showCard(MainApplicationFrame.BOOKING_MANAGEMENT_CARD);
-    }
-    
-    private void logout() {
-        SessionManager.logout();
-        MainApplicationFrame.getInstance().setJMenuBar(null);
-        MainApplicationFrame.getInstance().showCard(MainApplicationFrame.LOGIN_CARD);
     }
 }
 

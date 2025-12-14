@@ -6,6 +6,7 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 import model.Event;
 import service.EventService;
+import util.NotificationService;
 
 /**
  * Event Service Implementation
@@ -27,6 +28,15 @@ public class EventServiceImpl extends UnicastRemoteObject implements EventServic
             // Clear Hibernate collections to avoid serialization issues
             result.setBookings(null);
             result.setTags(null);
+            
+            // Send notification to all users about new event
+            new Thread(() -> {
+                try {
+                    NotificationService.getInstance().sendNewEventNotification(result);
+                } catch (Exception e) {
+                    System.err.println("Failed to send new event notification: " + e.getMessage());
+                }
+            }).start();
         }
         return result;
     }
@@ -65,8 +75,34 @@ public class EventServiceImpl extends UnicastRemoteObject implements EventServic
                 event.setBookings(null);
                 event.setTags(null);
             }
+            
+            // Check for expired events and notify admin
+            checkAndNotifyExpiredEvents(events);
         }
         return events;
+    }
+    
+    /**
+     * Check for expired events and send notifications to admin
+     */
+    private void checkAndNotifyExpiredEvents(List<Event> events) {
+        new Thread(() -> {
+            try {
+                java.util.Date today = new java.util.Date();
+                for (Event event : events) {
+                    if (event.getEventDate() != null) {
+                        java.util.Date eventDate = new java.util.Date(event.getEventDate().getTime());
+                        // Check if event date has passed (expired)
+                        if (eventDate.before(today)) {
+                            // Send notification to admin about expired event
+                            NotificationService.getInstance().sendEventExpiredNotification(event);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to check expired events: " + e.getMessage());
+            }
+        }).start();
     }
 
     @Override

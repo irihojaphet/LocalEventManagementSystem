@@ -5,6 +5,8 @@ import javax.swing.*;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import util.SessionManager;
+import util.NotificationManager;
 
 /**
  * Notification Listener for receiving real-time notifications via ActiveMQ
@@ -55,8 +57,13 @@ public class NotificationListener {
                         TextMessage textMessage = (TextMessage) message;
                         String notificationText = textMessage.getText();
                         String notificationType = textMessage.getStringProperty("notificationType");
+                        String targetRole = textMessage.getStringProperty("targetRole");
+                        String userId = textMessage.getStringProperty("userId");
                         
-                        handleNotification(notificationType, notificationText);
+                        // Check if notification should be shown to current user
+                        if (shouldShowNotification(targetRole, userId)) {
+                            handleNotification(notificationType, notificationText);
+                        }
                     }
                 }
             } catch (JMSException e) {
@@ -70,12 +77,47 @@ public class NotificationListener {
     }
     
     /**
+     * Check if notification should be shown to current user based on role and userId
+     */
+    private boolean shouldShowNotification(String targetRole, String userId) {
+        if (!SessionManager.isLoggedIn()) {
+            return false; // Don't show notifications if not logged in
+        }
+        
+        // If targetRole is "admin", only show to admins
+        if ("admin".equals(targetRole)) {
+            return SessionManager.isAdmin();
+        }
+        
+        // If targetRole is "customer", show to customers
+        if ("customer".equals(targetRole)) {
+            // If userId is specified, only show to that specific user
+            if (userId != null && !userId.isEmpty()) {
+                try {
+                    int targetUserId = Integer.parseInt(userId);
+                    return SessionManager.getCurrentUser() != null && 
+                           SessionManager.getCurrentUser().getUserId() == targetUserId;
+                } catch (NumberFormatException e) {
+                    // If userId parsing fails, show to all customers
+                    return SessionManager.isCustomer();
+                }
+            }
+            // If no userId specified, show to all customers
+            return SessionManager.isCustomer();
+        }
+        
+        // Default: show to all logged-in users
+        return true;
+    }
+    
+    /**
      * Handle incoming notification
      */
     private void handleNotification(String notificationType, String message) {
         SwingUtilities.invokeLater(() -> {
             try {
                 String[] parts = message.split("\\|");
+                NotificationManager notificationManager = NotificationManager.getInstance();
                 
                 if ("PAYMENT_CONFIRMED".equals(notificationType)) {
                     if (parts.length >= 8) {
@@ -83,45 +125,85 @@ public class NotificationListener {
                         String eventName = parts[5];
                         String amount = parts[6];
                         
+                        String title = "Payment Confirmed! 🎉";
                         String notificationMessage = String.format(
-                            "<html><body style='width: 300px;'>" +
-                            "<h3>Payment Confirmed! 🎉</h3>" +
-                            "<p><b>Ticket Number:</b> %s</p>" +
-                            "<p><b>Event:</b> %s</p>" +
-                            "<p><b>Amount:</b> RWF %s</p>" +
-                            "<p>Your payment has been confirmed. You can now print your ticket!</p>" +
-                            "</body></html>",
+                            "Ticket Number: %s\nEvent: %s\nAmount: RWF %s\n\nYour payment has been confirmed. You can now print your ticket!",
                             ticketNumber, eventName, amount
                         );
                         
-                        JOptionPane.showMessageDialog(
-                            null,
-                            notificationMessage,
-                            "Payment Confirmed",
-                            JOptionPane.INFORMATION_MESSAGE
-                        );
+                        notificationManager.addNotification(notificationType, title, notificationMessage);
                     }
                 } else if ("TICKET_READY".equals(notificationType)) {
                     if (parts.length >= 6) {
                         String ticketNumber = parts[1];
                         String eventName = parts[5];
                         
+                        String title = "Ticket Ready! 🎫";
                         String notificationMessage = String.format(
-                            "<html><body style='width: 300px;'>" +
-                            "<h3>Ticket Ready! 🎫</h3>" +
-                            "<p><b>Ticket Number:</b> %s</p>" +
-                            "<p><b>Event:</b> %s</p>" +
-                            "<p>Your ticket is ready to print!</p>" +
-                            "</body></html>",
+                            "Ticket Number: %s\nEvent: %s\n\nYour ticket is ready to print!",
                             ticketNumber, eventName
                         );
                         
-                        JOptionPane.showMessageDialog(
-                            null,
-                            notificationMessage,
-                            "Ticket Ready",
-                            JOptionPane.INFORMATION_MESSAGE
+                        notificationManager.addNotification(notificationType, title, notificationMessage);
+                    }
+                } else if ("NEW_EVENT".equals(notificationType)) {
+                    if (parts.length >= 5) {
+                        String eventName = parts[1];
+                        String eventDate = parts.length > 3 ? parts[3] : "";
+                        String eventTime = parts.length > 4 ? parts[4] : "";
+                        
+                        String title = "New Event Available! 🎊";
+                        String notificationMessage = String.format(
+                            "Event: %s\n%s%s\n\nCheck out this new event and book your tickets now!",
+                            eventName,
+                            eventDate.isEmpty() ? "" : "Date: " + eventDate + "\n",
+                            eventTime.isEmpty() ? "" : "Time: " + eventTime + "\n"
                         );
+                        
+                        notificationManager.addNotification(notificationType, title, notificationMessage);
+                    }
+                } else if ("NEW_BOOKING".equals(notificationType)) {
+                    if (parts.length >= 8) {
+                        String customerName = parts[2];
+                        String eventName = parts[4];
+                        String ticketNumber = parts[5];
+                        String amount = parts[6];
+                        String status = parts[7];
+                        
+                        String title = "New Booking Received! 📋";
+                        String notificationMessage = String.format(
+                            "Customer: %s\nEvent: %s\nTicket Number: %s\nAmount: RWF %s\nStatus: %s\n\nPlease review and confirm payment.",
+                            customerName, eventName, ticketNumber, amount, status
+                        );
+                        
+                        notificationManager.addNotification(notificationType, title, notificationMessage);
+                    }
+                } else if ("BOOKING_APPROVED".equals(notificationType)) {
+                    if (parts.length >= 5) {
+                        String ticketNumber = parts[1];
+                        String eventName = parts[3];
+                        String amount = parts[4];
+                        
+                        String title = "Booking Approved! ✅";
+                        String notificationMessage = String.format(
+                            "Ticket Number: %s\nEvent: %s\nAmount: RWF %s\n\nYour booking has been approved. You can now print your ticket!",
+                            ticketNumber, eventName, amount
+                        );
+                        
+                        notificationManager.addNotification(notificationType, title, notificationMessage);
+                    }
+                } else if ("EVENT_EXPIRED".equals(notificationType)) {
+                    if (parts.length >= 3) {
+                        String eventName = parts[1];
+                        String eventDate = parts[2];
+                        
+                        String title = "Event Expired! ⚠️";
+                        String notificationMessage = String.format(
+                            "Event: %s\nDate: %s\n\nThis event has expired. You can now delete it even if payments were made.",
+                            eventName, eventDate
+                        );
+                        
+                        notificationManager.addNotification(notificationType, title, notificationMessage);
                     }
                 }
             } catch (Exception e) {

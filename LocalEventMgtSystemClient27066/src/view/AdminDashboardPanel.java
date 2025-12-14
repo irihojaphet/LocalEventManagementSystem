@@ -23,44 +23,8 @@ public class AdminDashboardPanel extends JPanel {
     
     public AdminDashboardPanel() {
         dashboardDAO = new DashboardDAO();
-        setupMenuBar();
         initializeUI();
         loadStatistics();
-    }
-    
-    private void setupMenuBar() {
-        JMenuBar menuBar = Theme.createStyledMenuBar();
-        
-        JMenu eventsMenu = Theme.createStyledMenu("Events");
-        JMenuItem manageEventsItem = Theme.createStyledMenuItem("Manage Events");
-        manageEventsItem.addActionListener(e -> openEventManagement());
-        eventsMenu.add(manageEventsItem);
-        
-        JMenu bookingsMenu = Theme.createStyledMenu("Bookings");
-        JMenuItem viewBookingsItem = Theme.createStyledMenuItem("View All Bookings");
-        viewBookingsItem.addActionListener(e -> openBookingManagement());
-        bookingsMenu.add(viewBookingsItem);
-        
-        JMenu reportsMenu = Theme.createStyledMenu("Reports");
-        JMenuItem exportEventsItem = Theme.createStyledMenuItem("Export Events to Excel");
-        exportEventsItem.addActionListener(e -> exportEventsReport());
-        reportsMenu.add(exportEventsItem);
-        
-        JMenuItem exportBookingsItem = Theme.createStyledMenuItem("Export Bookings to Excel");
-        exportBookingsItem.addActionListener(e -> exportBookingsReport());
-        reportsMenu.add(exportBookingsItem);
-        
-        JMenu accountMenu = Theme.createStyledMenu("Account");
-        JMenuItem logoutItem = Theme.createStyledMenuItem("Logout");
-        logoutItem.addActionListener(e -> logout());
-        accountMenu.add(logoutItem);
-        
-        menuBar.add(eventsMenu);
-        menuBar.add(bookingsMenu);
-        menuBar.add(reportsMenu);
-        menuBar.add(accountMenu);
-        
-        MainApplicationFrame.getInstance().setJMenuBar(menuBar);
     }
     
     private void initializeUI() {
@@ -89,10 +53,10 @@ public class AdminDashboardPanel extends JPanel {
         totalRevenueValueLabel = new JLabel();
         upcomingEventsValueLabel = new JLabel();
         
-        statsPanel.add(Theme.createStatCard("Total Events", totalEventsValueLabel.getText(), Theme.PRIMARY_COLOR));
+        statsPanel.add(Theme.createStatCard("Total Events", totalEventsValueLabel.getText(), Theme.PRIMARY));
         statsPanel.add(Theme.createStatCard("Total Users", totalUsersValueLabel.getText(), Theme.SUCCESS_COLOR));
         statsPanel.add(Theme.createStatCard("Total Revenue", totalRevenueValueLabel.getText(), Theme.WARNING_COLOR));
-        statsPanel.add(Theme.createStatCard("Upcoming Events", upcomingEventsValueLabel.getText(), Theme.SECONDARY_COLOR));
+        statsPanel.add(Theme.createStatCard("Upcoming Events", upcomingEventsValueLabel.getText(), Theme.ACCENT));
         
         add(welcomePanel, BorderLayout.NORTH);
         add(statsPanel, BorderLayout.CENTER);
@@ -110,10 +74,10 @@ public class AdminDashboardPanel extends JPanel {
         // Update stat cards with actual values
         JPanel statsPanel = (JPanel) getComponent(1);
         statsPanel.removeAll();
-        statsPanel.add(Theme.createStatCard("Total Events", totalEventsValueLabel.getText(), Theme.PRIMARY_COLOR));
+        statsPanel.add(Theme.createStatCard("Total Events", totalEventsValueLabel.getText(), Theme.PRIMARY));
         statsPanel.add(Theme.createStatCard("Total Users", totalUsersValueLabel.getText(), Theme.SUCCESS_COLOR));
         statsPanel.add(Theme.createStatCard("Total Revenue", totalRevenueValueLabel.getText(), Theme.WARNING_COLOR));
-        statsPanel.add(Theme.createStatCard("Upcoming Events", upcomingEventsValueLabel.getText(), Theme.SECONDARY_COLOR));
+        statsPanel.add(Theme.createStatCard("Upcoming Events", upcomingEventsValueLabel.getText(), Theme.ACCENT));
         statsPanel.revalidate();
         statsPanel.repaint();
     }
@@ -126,13 +90,8 @@ public class AdminDashboardPanel extends JPanel {
         MainApplicationFrame.getInstance().showCard(MainApplicationFrame.BOOKING_MANAGEMENT_CARD);
     }
     
-    private void logout() {
-        SessionManager.logout();
-        MainApplicationFrame.getInstance().setJMenuBar(null);
-        MainApplicationFrame.getInstance().showCard(MainApplicationFrame.LOGIN_CARD);
-    }
-    
-    private void exportEventsReport() {
+    // Public methods for navigation panel to call
+    public void exportEventsReport() {
         try {
             EventDAO eventDAO = new EventDAO();
             List<Event> events = eventDAO.getAllEvents();
@@ -178,7 +137,7 @@ public class AdminDashboardPanel extends JPanel {
         }
     }
     
-    private void exportBookingsReport() {
+    public void exportBookingsReport() {
         try {
             BookingDAO bookingDAO = new BookingDAO();
             List<Booking> bookings = bookingDAO.getAllBookings();

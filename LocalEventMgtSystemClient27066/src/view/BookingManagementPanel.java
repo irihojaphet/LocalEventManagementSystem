@@ -7,6 +7,7 @@ import util.Theme;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.util.List;
 
@@ -17,27 +18,8 @@ public class BookingManagementPanel extends JPanel {
     
     public BookingManagementPanel() {
         bookingDAO = new BookingDAO();
-        setupMenuBar();
         initializeUI();
         loadBookings();
-    }
-    
-    private void setupMenuBar() {
-        JMenuBar menuBar = Theme.createStyledMenuBar();
-        
-        JMenu navigationMenu = Theme.createStyledMenu("Navigation");
-        JMenuItem backToDashboardItem = Theme.createStyledMenuItem("Back to Dashboard");
-        backToDashboardItem.addActionListener(e -> {
-            if (SessionManager.isAdmin()) {
-                MainApplicationFrame.getInstance().showCard(MainApplicationFrame.ADMIN_DASHBOARD_CARD);
-            } else {
-                MainApplicationFrame.getInstance().showCard(MainApplicationFrame.CUSTOMER_DASHBOARD_CARD);
-            }
-        });
-        navigationMenu.add(backToDashboardItem);
-        
-        menuBar.add(navigationMenu);
-        MainApplicationFrame.getInstance().setJMenuBar(menuBar);
     }
     
     private void initializeUI() {
@@ -52,7 +34,7 @@ public class BookingManagementPanel extends JPanel {
         // Title panel with permanent background
         JPanel titlePanel = new JPanel(new BorderLayout());
         titlePanel.setOpaque(true);
-        titlePanel.setBackground(Theme.PRIMARY_COLOR);
+        titlePanel.setBackground(Theme.PRIMARY);
         titlePanel.setBorder(new EmptyBorder(15, 25, 15, 25));
         titlePanel.setPreferredSize(new Dimension(Integer.MAX_VALUE, 55));
         JLabel titleLabel = new JLabel("Bookings");
@@ -76,6 +58,20 @@ public class BookingManagementPanel extends JPanel {
         bookingsTable = new JTable(tableModel);
         Theme.styleTable(bookingsTable);
         bookingsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        bookingsTable.setAutoCreateRowSorter(false);
+        bookingsTable.setFillsViewportHeight(true);
+        bookingsTable.setShowGrid(true);
+        bookingsTable.setShowHorizontalLines(true);
+        bookingsTable.setShowVerticalLines(true);
+        
+        // Ensure table header is visible and styled with dark blue background
+        JTableHeader header = bookingsTable.getTableHeader();
+        header.setVisible(true);
+        header.setReorderingAllowed(false);
+        header.setOpaque(true);
+        header.setBackground(Theme.SIDEBAR_BG); // Same dark blue as sidebar
+        header.setForeground(Theme.TEXT_WHITE);
+        header.setFont(Theme.getSubheadingFont());
         
         JScrollPane scrollPane = new JScrollPane(bookingsTable);
         scrollPane.setBorder(null);
@@ -124,27 +120,70 @@ public class BookingManagementPanel extends JPanel {
         tableModel.setRowCount(0);
         List<Booking> bookings;
         
-        if (SessionManager.isAdmin()) {
-            bookings = bookingDAO.getAllBookings();
-        } else {
-            bookings = bookingDAO.getBookingsByUser(SessionManager.getCurrentUser().getUserId());
-        }
-        
-        for (Booking booking : bookings) {
-            String categoryDisplay = booking.getTicketCategory() != null ? 
-                booking.getTicketCategory().toUpperCase() : "Standard";
-            Object[] row = {
-                booking.getBookingId(),
-                booking.getEventName(),
-                booking.getUserName(),
-                booking.getBookingDate(),
-                booking.getNumberOfTickets(),
-                categoryDisplay,
-                "RWF " + booking.getTotalAmount(),
-                booking.getPaymentStatus(),
-                booking.getTicketNumber()
-            };
-            tableModel.addRow(row);
+        try {
+            if (SessionManager.isAdmin()) {
+                bookings = bookingDAO.getAllBookings();
+            } else {
+                bookings = bookingDAO.getBookingsByUser(SessionManager.getCurrentUser().getUserId());
+            }
+            
+            if (bookings == null || bookings.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                    "No bookings found.",
+                    "No Data",
+                    JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+            
+            for (Booking booking : bookings) {
+                String categoryDisplay = booking.getTicketCategory() != null ? 
+                    booking.getTicketCategory().toUpperCase() : "Standard";
+                
+                // Get event name - use display field or fallback to ID
+                String eventName = booking.getEventName();
+                if (eventName == null || eventName.trim().isEmpty()) {
+                    eventName = "Event #" + booking.getEventId();
+                }
+                
+                // Get user name - use display field or fallback to ID
+                String userName = booking.getUserName();
+                if (userName == null || userName.trim().isEmpty()) {
+                    userName = "User #" + booking.getUserId();
+                }
+                
+                // Get event date - prefer eventDate (from event) over bookingDate
+                // Combine date and time if both are available
+                String eventDateStr = "N/A";
+                if (booking.getEventDate() != null && !booking.getEventDate().trim().isEmpty()) {
+                    eventDateStr = booking.getEventDate();
+                    // If time is also available, append it
+                    if (booking.getEventTime() != null && !booking.getEventTime().trim().isEmpty()) {
+                        eventDateStr += " " + booking.getEventTime();
+                    }
+                } else if (booking.getBookingDate() != null) {
+                    // Fallback to booking date if event date is not available
+                    eventDateStr = booking.getBookingDate().toString();
+                }
+                
+                Object[] row = {
+                    booking.getBookingId(),
+                    eventName,
+                    userName,
+                    eventDateStr,
+                    booking.getNumberOfTickets(),
+                    categoryDisplay,
+                    "RWF " + String.format("%.2f", booking.getTotalAmount()),
+                    booking.getPaymentStatus() != null ? booking.getPaymentStatus() : "pending",
+                    booking.getTicketNumber() != null ? booking.getTicketNumber() : "N/A"
+                };
+                tableModel.addRow(row);
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                "Error loading bookings: " + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
         }
     }
     

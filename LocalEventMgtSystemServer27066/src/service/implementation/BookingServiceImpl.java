@@ -5,6 +5,8 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 import model.Booking;
+import model.Event;
+import model.User;
 import service.BookingService;
 import util.NotificationService;
 
@@ -25,6 +27,9 @@ public class BookingServiceImpl extends UnicastRemoteObject implements BookingSe
     public Booking createBooking(Booking booking) throws RemoteException {
         Booking result = dao.createBooking(booking);
         if (result != null) {
+            // Get booking with relationships for notification
+            Booking bookingWithRelations = dao.getBookingWithRelations(result.getBookingId());
+            
             // Clear Hibernate relationships to avoid serialization issues
             if (result.getEvent() != null) {
                 result.getEvent().setBookings(null);
@@ -34,6 +39,19 @@ public class BookingServiceImpl extends UnicastRemoteObject implements BookingSe
                 result.getUser().setBookings(null);
                 result.getUser().setOrganizedEvents(null);
                 result.getUser().setUserProfile(null);
+            }
+            
+            // Send notification to admin about new booking
+            if (bookingWithRelations != null && bookingWithRelations.getUser() != null && bookingWithRelations.getEvent() != null) {
+                new Thread(() -> {
+                    try {
+                        NotificationService.getInstance().sendNewBookingNotification(
+                            bookingWithRelations, bookingWithRelations.getUser(), bookingWithRelations.getEvent()
+                        );
+                    } catch (Exception e) {
+                        System.err.println("Failed to send new booking notification: " + e.getMessage());
+                    }
+                }).start();
             }
         }
         return result;
@@ -82,17 +100,9 @@ public class BookingServiceImpl extends UnicastRemoteObject implements BookingSe
     public List<Booking> findAllBookings() throws RemoteException {
         List<Booking> bookings = dao.findAllBookings();
         if (bookings != null) {
-            // Clear Hibernate relationships to avoid RMI serialization issues
+            // Detach Hibernate entities and clear relationships to avoid RMI serialization issues
             for (Booking booking : bookings) {
-                if (booking.getEvent() != null) {
-                    booking.getEvent().setBookings(null);
-                    booking.getEvent().setTags(null);
-                }
-                if (booking.getUser() != null) {
-                    booking.getUser().setBookings(null);
-                    booking.getUser().setOrganizedEvents(null);
-                    booking.getUser().setUserProfile(null);
-                }
+                detachBooking(booking);
             }
         }
         return bookings;
@@ -102,19 +112,25 @@ public class BookingServiceImpl extends UnicastRemoteObject implements BookingSe
     public List<Booking> findBookingsByUser(int userId) throws RemoteException {
         List<Booking> bookings = dao.findBookingsByUser(userId);
         if (bookings != null) {
+            // Detach Hibernate entities and clear relationships
             for (Booking booking : bookings) {
-                if (booking.getEvent() != null) {
-                    booking.getEvent().setBookings(null);
-                    booking.getEvent().setTags(null);
-                }
-                if (booking.getUser() != null) {
-                    booking.getUser().setBookings(null);
-                    booking.getUser().setOrganizedEvents(null);
-                    booking.getUser().setUserProfile(null);
-                }
+                detachBooking(booking);
             }
         }
         return bookings;
+    }
+    
+    // Helper method to detach booking from Hibernate session
+    private void detachBooking(Booking booking) {
+        try {
+            // Clear Hibernate relationships to avoid serialization issues
+            // The transient fields (eventName, userName, etc.) are already populated by DAO
+            booking.setEvent(null); // Clear the relationship
+            booking.setUser(null); // Clear the relationship
+        } catch (Exception e) {
+            // If any error occurs, continue - the transient fields should have the data
+            System.err.println("Warning: Error detaching booking: " + e.getMessage());
+        }
     }
 
     @Override
@@ -143,6 +159,9 @@ public class BookingServiceImpl extends UnicastRemoteObject implements BookingSe
                                 booking, booking.getUser(), booking.getEvent()
                             );
                             NotificationService.getInstance().sendTicketReadyNotification(
+                                booking, booking.getUser(), booking.getEvent()
+                            );
+                            NotificationService.getInstance().sendBookingApprovedNotification(
                                 booking, booking.getUser(), booking.getEvent()
                             );
                         } catch (Exception e) {

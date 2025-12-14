@@ -4,6 +4,7 @@ import java.util.List;
 import model.Booking;
 import model.Event;
 import model.User;
+import model.Venue;
 import org.hibernate.*;
 import org.hibernate.query.Query;
 
@@ -96,15 +97,26 @@ public class BookingDao {
         }
     }
     
-    // READ - Find all bookings
+    // READ - Find all bookings with display data populated
     public List<Booking> findAllBookings() {
         try {
             Session ss = HibernateUtil.getSessionFactory().openSession();
+            // Use JOIN FETCH to eagerly load relationships
             Query<Booking> query = ss.createQuery(
-                "FROM Booking ORDER BY bookingDate DESC", 
+                "SELECT DISTINCT b FROM Booking b " +
+                "LEFT JOIN FETCH b.event e " +
+                "LEFT JOIN FETCH b.user u " +
+                "LEFT JOIN FETCH e.venue v " +
+                "ORDER BY b.bookingDate DESC", 
                 Booking.class
             );
             List<Booking> bookings = query.list();
+            
+            // Populate display fields while session is open
+            for (Booking booking : bookings) {
+                populateDisplayFields(booking, ss);
+            }
+            
             ss.close();
             return bookings;
         } catch (Exception ex) {
@@ -113,21 +125,103 @@ public class BookingDao {
         }
     }
     
-    // READ - Find bookings by user
+    // READ - Find bookings by user with display data populated
     public List<Booking> findBookingsByUser(int userId) {
         try {
             Session ss = HibernateUtil.getSessionFactory().openSession();
+            // Use JOIN FETCH to eagerly load relationships
             Query<Booking> query = ss.createQuery(
-                "FROM Booking WHERE user.userId = :userId ORDER BY bookingDate DESC", 
+                "SELECT DISTINCT b FROM Booking b " +
+                "LEFT JOIN FETCH b.event e " +
+                "LEFT JOIN FETCH b.user u " +
+                "LEFT JOIN FETCH e.venue v " +
+                "WHERE b.user.userId = :userId " +
+                "ORDER BY b.bookingDate DESC", 
                 Booking.class
             );
             query.setParameter("userId", userId);
             List<Booking> bookings = query.list();
+            
+            // Populate display fields while session is open
+            for (Booking booking : bookings) {
+                populateDisplayFields(booking, ss);
+            }
+            
             ss.close();
             return bookings;
         } catch (Exception ex) {
             ex.printStackTrace();
             return null;
+        }
+    }
+    
+    // Helper method to populate display fields while session is open
+    private void populateDisplayFields(Booking booking, Session session) {
+        try {
+            // Force initialization of lazy-loaded relationships
+            if (booking.getEvent() != null) {
+                Event event = booking.getEvent();
+                // Access fields to trigger lazy loading
+                String eventName = event.getEventName();
+                String eventDesc = event.getEventDescription();
+                
+                // Only set if not null/empty - let null pass through for client-side handling
+                if (eventName != null && !eventName.trim().isEmpty()) {
+                    booking.setEventName(eventName);
+                }
+                if (eventDesc != null && !eventDesc.trim().isEmpty()) {
+                    booking.setEventDescription(eventDesc);
+                }
+                
+                // Set event date - format it properly
+                if (event.getEventDate() != null) {
+                    booking.setEventDate(event.getEventDate().toString());
+                } else {
+                    // If event date is null, try to use booking date as fallback
+                    if (booking.getBookingDate() != null) {
+                        booking.setEventDate(booking.getBookingDate().toString());
+                    }
+                }
+                if (event.getEventTime() != null) {
+                    booking.setEventTime(event.getEventTime().toString());
+                }
+                
+                // Load venue if available
+                Venue venue = event.getVenue();
+                if (venue != null) {
+                    String venueName = venue.getVenueName();
+                    if (venueName != null && !venueName.trim().isEmpty()) {
+                        booking.setVenueName(venueName);
+                    }
+                    String venueLoc = venue.getLocation();
+                    if (venueLoc != null && !venueLoc.trim().isEmpty()) {
+                        booking.setVenueLocation(venueLoc);
+                    }
+                }
+            }
+            
+            if (booking.getUser() != null) {
+                User user = booking.getUser();
+                // Access fields to trigger lazy loading
+                String fullName = user.getFullName();
+                String email = user.getEmail();
+                String phone = user.getPhoneNumber();
+                
+                // Only set if not null/empty - let null pass through for client-side handling
+                if (fullName != null && !fullName.trim().isEmpty()) {
+                    booking.setUserName(fullName);
+                }
+                if (email != null && !email.trim().isEmpty()) {
+                    booking.setUserEmail(email);
+                }
+                if (phone != null && !phone.trim().isEmpty()) {
+                    booking.setUserPhone(phone);
+                }
+            }
+        } catch (Exception e) {
+            // If any field access fails, log but continue
+            System.err.println("Error populating display fields for booking " + booking.getBookingId() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
     

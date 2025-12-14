@@ -15,6 +15,7 @@ import java.awt.*;
 import java.sql.Date;
 import java.sql.Time;
 import java.util.List;
+import java.util.Calendar;
 
 public class EventManagementPanel extends JPanel {
     private JTable eventsTable;
@@ -44,27 +45,8 @@ public class EventManagementPanel extends JPanel {
         eventDAO = new EventDAO();
         venueDAO = new VenueDAO();
         eventController = new EventController();
-        setupMenuBar();
         initializeUI();
         loadEvents();
-    }
-    
-    private void setupMenuBar() {
-        JMenuBar menuBar = Theme.createStyledMenuBar();
-        
-        JMenu navigationMenu = Theme.createStyledMenu("Navigation");
-        JMenuItem backToDashboardItem = Theme.createStyledMenuItem("Back to Dashboard");
-        backToDashboardItem.addActionListener(e -> {
-            if (SessionManager.isAdmin()) {
-                MainApplicationFrame.getInstance().showCard(MainApplicationFrame.ADMIN_DASHBOARD_CARD);
-            } else {
-                MainApplicationFrame.getInstance().showCard(MainApplicationFrame.CUSTOMER_DASHBOARD_CARD);
-            }
-        });
-        navigationMenu.add(backToDashboardItem);
-        
-        menuBar.add(navigationMenu);
-        MainApplicationFrame.getInstance().setJMenuBar(menuBar);
     }
     
     private void initializeUI() {
@@ -359,7 +341,11 @@ public class EventManagementPanel extends JPanel {
             events = eventDAO.getEventsByOrganizer(SessionManager.getCurrentUser().getUserId());
         }
         
+        Date today = new Date(System.currentTimeMillis());
+        
         for (Event event : events) {
+            boolean isExpired = isEventExpired(event, today);
+            
             Object[] row = {
                 event.getEventId(),
                 event.getEventName(),
@@ -369,10 +355,68 @@ public class EventManagementPanel extends JPanel {
                 event.getOrganizerName(),
                 event.getCapacity(),
                 event.getTicketPrice(),
-                event.getStatus()
+                isExpired ? "EXPIRED" : (event.getStatus() != null ? event.getStatus() : "scheduled")
             };
             tableModel.addRow(row);
+            
+            // Highlight expired events with red background
+            if (isExpired) {
+                int rowIndex = tableModel.getRowCount() - 1;
+                eventsTable.setRowSelectionInterval(rowIndex, rowIndex);
+                // Set row background color (requires custom renderer)
+            }
         }
+        
+        // Apply custom renderer to highlight expired events
+        eventsTable.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                    boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                
+                // Check if event is expired (status column is 8)
+                Object statusValue = table.getValueAt(row, 8);
+                if (statusValue != null && "EXPIRED".equals(statusValue.toString())) {
+                    if (!isSelected) {
+                        c.setBackground(new Color(255, 200, 200)); // Light red
+                    } else {
+                        c.setBackground(new Color(255, 150, 150)); // Darker red when selected
+                    }
+                } else {
+                    if (!isSelected) {
+                        c.setBackground(Color.WHITE);
+                    }
+                }
+                
+                return c;
+            }
+        });
+    }
+    
+    /**
+     * Check if an event is expired (event date has passed)
+     */
+    private boolean isEventExpired(Event event, Date today) {
+        if (event.getEventDate() == null) {
+            return false;
+        }
+        
+        // Compare dates (ignore time for date comparison)
+        Calendar eventCal = Calendar.getInstance();
+        eventCal.setTime(event.getEventDate());
+        eventCal.set(Calendar.HOUR_OF_DAY, 0);
+        eventCal.set(Calendar.MINUTE, 0);
+        eventCal.set(Calendar.SECOND, 0);
+        eventCal.set(Calendar.MILLISECOND, 0);
+        
+        Calendar todayCal = Calendar.getInstance();
+        todayCal.setTime(today);
+        todayCal.set(Calendar.HOUR_OF_DAY, 0);
+        todayCal.set(Calendar.MINUTE, 0);
+        todayCal.set(Calendar.SECOND, 0);
+        todayCal.set(Calendar.MILLISECOND, 0);
+        
+        return eventCal.before(todayCal);
     }
     
     private void addEvent() {
@@ -706,14 +750,29 @@ public class EventManagementPanel extends JPanel {
             return;
         }
         
+        int eventId = (int) tableModel.getValueAt(selectedRow, 0);
+        Event event = eventDAO.getEventById(eventId);
+        
+        // Check if event is expired
+        boolean isExpired = isEventExpired(event, new Date(System.currentTimeMillis()));
+        
+        String confirmMessage;
+        if (isExpired) {
+            confirmMessage = "This event has expired. Are you sure you want to delete it?\n" +
+                           "Note: You can delete expired events even if payments were made, " +
+                           "as the event has already passed and tickets have been used.";
+        } else {
+            confirmMessage = "Are you sure you want to delete this event?\n" +
+                           "Note: Events with paid bookings cannot be deleted unless they are expired.";
+        }
+        
         int confirm = JOptionPane.showConfirmDialog(this,
-            "Are you sure you want to delete this event?",
+            confirmMessage,
             "Confirm Delete",
-            JOptionPane.YES_NO_OPTION);
+            JOptionPane.YES_NO_OPTION,
+            isExpired ? JOptionPane.WARNING_MESSAGE : JOptionPane.QUESTION_MESSAGE);
         
         if (confirm == JOptionPane.YES_OPTION) {
-            int eventId = (int) tableModel.getValueAt(selectedRow, 0);
-            
             if (eventDAO.deleteEvent(eventId)) {
                 JOptionPane.showMessageDialog(this, 
                     "Event deleted successfully!", 
@@ -721,10 +780,18 @@ public class EventManagementPanel extends JPanel {
                     JOptionPane.INFORMATION_MESSAGE);
                 loadEvents();
             } else {
-                JOptionPane.showMessageDialog(this, 
-                    "Cannot delete event with existing paid bookings!", 
-                    "Delete Error", 
-                    JOptionPane.ERROR_MESSAGE);
+                if (isExpired) {
+                    JOptionPane.showMessageDialog(this, 
+                        "Failed to delete expired event. Please try again.", 
+                        "Delete Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, 
+                        "Cannot delete event with existing paid bookings!\n" +
+                        "Only expired events can be deleted regardless of payment status.", 
+                        "Delete Error", 
+                        JOptionPane.ERROR_MESSAGE);
+                }
             }
         }
     }

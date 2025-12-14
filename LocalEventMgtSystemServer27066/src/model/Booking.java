@@ -97,7 +97,8 @@ public class Booking implements Serializable {
     public String getTicketCategory() { return ticketCategory; }
     public void setTicketCategory(String ticketCategory) { this.ticketCategory = ticketCategory; }
     
-    // Transient fields for RMI compatibility (received from client)
+    // Fields for RMI compatibility (received from client)
+    // Note: NOT marked as transient so they can be serialized over RMI
     @Transient
     private int eventId;
     
@@ -128,15 +129,25 @@ public class Booking implements Serializable {
     }
     
     // Additional helper methods for display (populated by queries)
-    private transient String eventName;
-    private transient String userName;
-    private transient String eventDate;
-    private transient String eventTime;
-    private transient String eventDescription;
-    private transient String venueName;
-    private transient String venueLocation;
-    private transient String userEmail;
-    private transient String userPhone;
+    // Note: NOT marked as transient so they can be serialized over RMI
+    @Transient
+    private String eventName;
+    @Transient
+    private String userName;
+    @Transient
+    private String eventDate;
+    @Transient
+    private String eventTime;
+    @Transient
+    private String eventDescription;
+    @Transient
+    private String venueName;
+    @Transient
+    private String venueLocation;
+    @Transient
+    private String userEmail;
+    @Transient
+    private String userPhone;
     
     public String getEventName() { return eventName; }
     public void setEventName(String eventName) { this.eventName = eventName; }

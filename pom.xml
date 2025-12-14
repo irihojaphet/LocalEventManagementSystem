@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.eventmanagement</groupId>
+    <artifactId>local-event-management-system</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>Local Event Management System</name>
+    <description>Distributed Event Management System with RMI, Hibernate, and Swing GUI</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <hibernate.version>6.4.4.Final</hibernate.version>
+        <postgresql.version>42.7.8</postgresql.version>
+    </properties>
+
+    <modules>
+        <module>LocalEventMgtSystemServer27066</module>
+        <module>LocalEventMgtSystemClient27066</module>
+    </modules>
+
+</project>
+
